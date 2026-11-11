@@ -614,8 +614,8 @@ an unfinished (`:new`) reconciliation of the account (issue #182).
   ids (`:open-reconciliation-ids`) to show those items with a dash rather
   than a check, and disables Delete on completed ones
 - `views/statement_upload.cljs` - the file input and poll loop, shared by
-  `views/statements.cljs` (the `/statements` page, which hands the account to
-  the accounts page via `:pending-reconciliation` in `app-state`) and the
+  `views/statements.cljs` (the `/statements` page, which navigates to
+  `/accounts/:id/reconcile` to open the account's reconciliation) and the
   "Read from a statement" input on the reconciliation form
 - Test fixtures (`fixtures/statements/`) are fictitious statements
   with the expected model answers; real statements must not be committed

@@ -20,6 +20,7 @@
                                      accounts-by-id
                                      +busy
                                      -busy]]
+            [clj-money.cached-accounts :refer [when-accounts-loaded]]
             [clj-money.api.transactions :as transactions]
             [clj-money.api.receipt-ingestions :as ri]
             [clj-money.pending-review :as pending-review]
@@ -43,21 +44,6 @@
     (@accounts-by-id (or (some #(when (= preferred-account-id (str %)) %)
                                account-ids)
                          (first account-ids)))))
-
-(defn- when-accounts-loaded
-  "Calls f once the cached accounts are loaded. They may still be loading,
-  e.g., when the page is loaded directly."
-  [f]
-  (if (seq (:accounts @app-state))
-    (f)
-    ; app-state rather than the accounts cursor, which only notifies its
-    ; watches when it's dereferenced
-    (add-watch app-state
-               ::accounts-loaded
-               (fn [_ _ _ {:keys [accounts]}]
-                 (when (seq accounts)
-                   (remove-watch app-state ::accounts-loaded)
-                   (f))))))
 
 (defn- load-receipt-image
   [page-state {:receipt-ingestion/keys [image]}]

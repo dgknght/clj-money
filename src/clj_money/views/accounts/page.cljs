@@ -3,7 +3,8 @@
   one the user selects, in its register (or, for a tradable account, its
   lots and transactions), where transactions and trades are entered and the
   account is reconciled. The page holds the state the elements share and
-  decides which of them are shown."
+  decides which of them are shown. /accounts/:id/reconcile (see
+  reconcile-path) opens the page with the account's reconciliation started."
   (:require [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [secretary.core :as secretary :include-macros true]
@@ -15,7 +16,8 @@
             [clj-money.components :refer [button]]
             [clj-money.api.commodities :as commodities]
             [clj-money.cached-accounts :refer [fetch-accounts
-                                               push-transaction-date!]]
+                                               push-transaction-date!
+                                               when-accounts-loaded]]
             [clj-money.accounts :refer [system-tagged?]]
             [clj-money.state :refer [app-state
                                      current-entity
@@ -40,6 +42,12 @@
             [clj-money.views.trades.form :as trades]
             [clj-money.views.reconciliations :as recs]
             [clj-money.views.attachments :as atts]))
+
+(defn reconcile-path
+  "Returns the path of the accounts page with the reconciliation of the
+  account started"
+  [{:keys [id]}]
+  (str "/accounts/" (js/encodeURIComponent id) "/reconcile"))
 
 (defn- view-account
   [account page-state]
@@ -82,6 +90,17 @@
   [account page-state]
   (view-account account page-state)
   (start-reconciliation page-state))
+
+(defn- reconcile-account-by-id
+  "Starts the reconciliation of the account with the id, which comes from
+  the path, so it's a string. The cached accounts may still be loading,
+  e.g., when the page is loaded directly."
+  [id page-state]
+  (when-accounts-loaded
+    (fn []
+      (when-let [account (some #(when (= id (str (:id %))) %)
+                               @accounts)]
+        (reconcile-account account page-state)))))
 
 (defn- list-reconciliations
   [account page-state]
@@ -219,7 +238,8 @@
    :on-reconciliations #(show-reconciliations page-state)
    :on-back #(unselect-account page-state)})
 
-(defn- index []
+(defn- index
+  [& [reconcile-account-id]]
   (let [page-state (r/atom {:expanded #{}
                             :filter {:hide-zero-balances? (any-non-zero-balances?)
                                      :show-hidden? false
@@ -250,12 +270,12 @@
         on-account-save (fn [_saved]
                           (fetch-accounts)
                           (close-account-form))]
-    (let [account (:pending-reconciliation @app-state)]
-      (swap! app-state dissoc :pending-reconciliation)
-      ; the account's commodity is needed to reconcile it
-      (load-commodities page-state
-                        :on-loaded (when account
-                                     #(reconcile-account account page-state))))
+    ; the account's commodity is needed to reconcile it
+    (load-commodities page-state
+                      :on-loaded (when reconcile-account-id
+                                   #(reconcile-account-by-id
+                                      reconcile-account-id
+                                      page-state)))
     (add-watch current-entity
                ::index
                (fn [_ _ previous current]
@@ -263,7 +283,7 @@
                  ; which shouldn't close what's open
                  (when-not (id= previous current)
                    (reset-for-entity page-state))))
-    (fn []
+    (fn [& _]
       [:div.h-100
        [:div.row
         [:div.col-lg-8
@@ -345,3 +365,11 @@
 
 (secretary/defroute "/accounts" []
   (swap! app-state assoc :page #'index :active-nav :accounts))
+
+; A regex route, because secretary (1.2.3) fails to extract the params of a
+; route like "/accounts/:id/reconcile" (see the transactions page). The
+; bindings must be plain symbols: defroute also uses them as map keys.
+(secretary/defroute #"/accounts/([^/?#]+)/reconcile" [id]
+  (swap! app-state assoc
+         :page #(vector index (js/decodeURIComponent id))
+         :active-nav :accounts))

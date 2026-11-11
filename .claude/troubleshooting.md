@@ -69,9 +69,10 @@ grep cljs-out` should list `public/cljs-out/clj-money.js`.
 `href` attribute. An icon's `<use href="/images/bootstrap-icons.svg#...">`
 is such an element, so a click on the glyph of an icon inside a link wasn't
 intercepted and the browser loaded the page from the server, losing
-anything left in `app-state` for the next page (e.g., the
-`:pending-reconciliation` hand-off from the Statements page). `site.scss` gives `a .bi` `pointer-events:
-none` so the click lands on the link. Rebuild the CSS locally with `npm run
+anything left in `app-state` for the next page. `site.scss` gives `a .bi`
+`pointer-events: none` so the click lands on the link. Prefer passing what
+the next page needs in its path (e.g., `/accounts/:id/reconcile`) over
+leaving it in `app-state`. Rebuild the CSS locally with `npm run
 build:css`.
 
 ### New client code isn't running, or the nav throws `No protocol method IDeref.-deref defined for type undefined`

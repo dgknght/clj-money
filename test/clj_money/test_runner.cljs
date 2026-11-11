@@ -15,6 +15,7 @@
             [clj-money.views.transactions.page-test]
             [clj-money.views.trades.form-test]
             [clj-money.views.accounts.filter-test]
+            [clj-money.views.accounts.page-test]
             [clj-money.views.statement-upload-test]
             [clj-money.views.budgets-test]
             [clj-money.views.attachments-test]
@@ -44,6 +45,7 @@
     'clj-money.views.transactions.page-test
     'clj-money.views.trades.form-test
     'clj-money.views.accounts.filter-test
+    'clj-money.views.accounts.page-test
     'clj-money.views.statement-upload-test
     'clj-money.views.budgets-test
     'clj-money.views.attachments-test

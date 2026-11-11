@@ -3,14 +3,13 @@
             [reagent.core :as r]
             [accountant.core :as accountant]
             [clj-money.state :refer [app-state]]
+            [clj-money.views.accounts.page :refer [reconcile-path]]
             [clj-money.views.statement-upload :refer [statement-input
                                                       reading-indicator]]))
 
 (defn- review-reconciliation
   [account]
-  ; the accounts page opens the reconciliation when it loads
-  (swap! app-state assoc :pending-reconciliation account)
-  (accountant/navigate! "/accounts"))
+  (accountant/navigate! (reconcile-path account)))
 
 (defn- index []
   (let [reading (r/atom nil)]
