@@ -319,7 +319,7 @@ $bottom-nav-height: 3.5rem;
 .checkbox-beside-input > .mb-3 {
   display: flex;
   align-items: center;
-  min-height: $input-height;
+  min-height: bootstrap.$input-height;
 }
 
 .checkbox-beside-input .form-check {
