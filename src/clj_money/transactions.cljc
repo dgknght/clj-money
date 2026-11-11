@@ -759,3 +759,44 @@
         (rename-keys renames)
         (update-in [:transaction/quantity] d/abs)
         ->bilateral)))
+
+(defn- accountified->items
+  "Builds unilateral items from whatever accounts and quantity an accountified
+  transaction has, without requiring it to be complete"
+  [{:transaction/keys [account item other-account other-item quantity]}]
+  (let [quantity (or quantity d/zero)
+        account-action (if (and account
+                                (if (left-side? account)
+                                  (d/< d/zero quantity)
+                                  (d/< quantity d/zero)))
+                         :debit
+                         :credit)
+        other-action ({:debit :credit :credit :debit} account-action)
+        ->item (fn [acct action {:account-item/keys [memo]}]
+                 (cond-> #:transaction-item{:account acct
+                                            :action action
+                                            :quantity (when-not (d/zero? quantity)
+                                                        (d/abs quantity))}
+                   memo (assoc :transaction-item/memo memo)))]
+    (cond-> []
+      account (conj (->item account account-action item))
+      other-account (conj (->item other-account other-action other-item)))))
+
+(defn expand
+  "Accepts an accountified transaction and returns it entryfied, for editing
+  all of its items. A transaction that isn't complete yet keeps what has been
+  entered: its date, description, memo, and an item for each account chosen."
+  [trx]
+  (entryfy
+    (or (when ((every-pred :transaction/account
+                           :transaction/other-account)
+               trx)
+          (some-> trx unaccountify ->unilateral))
+        (-> trx
+            (dissoc :transaction/account
+                    :transaction/item
+                    :transaction/other-account
+                    :transaction/other-item
+                    :transaction/transaction-item
+                    :transaction/quantity)
+            (assoc :transaction/items (accountified->items trx))))))

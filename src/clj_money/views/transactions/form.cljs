@@ -28,15 +28,15 @@
                                      +busy
                                      -busy]]
             [clj-money.accounts :refer [find-by-path]]
-            [clj-money.transactions :refer [accountify
-                                            unaccountify
-                                            accountified?
-                                            can-accountify?
-                                            entryfy
-                                            unentryfy
-                                            ensure-empty-item
-                                            ->unilateral
-                                            ->bilateral]]
+            [clj-money.transactions :as trxs :refer [accountify
+                                                     unaccountify
+                                                     accountified?
+                                                     can-accountify?
+                                                     entryfy
+                                                     unentryfy
+                                                     ensure-empty-item
+                                                     ->unilateral
+                                                     ->bilateral]]
             [clj-money.api.transactions :as transactions]
             [clj-money.pending-review :as pending-review]))
 
@@ -266,11 +266,7 @@
 
 (defn- expand
   [trx]
-  (-> trx
-      v/reset
-      unaccountify
-      ->unilateral
-      entryfy))
+  (trxs/expand (v/reset trx)))
 
 (defn- collapse
   [trx account]

@@ -198,8 +198,7 @@
                                                                    :account-item/quantity (d 10)}
                                      :transaction-item/value (d 10)}]}
           simple (trx/accountify trx (accounts :checking))
-          ; the same steps performed by expand-trx/collapse-trx in the accounts view
-          expanded (-> simple trx/unaccountify trx/->unilateral trx/entryfy)
+          expanded (trx/expand simple)
           collapsed (-> expanded trx/unentryfy trx/->bilateral)]
       (is (trx/can-accountify? collapsed)
           "The transaction can be re-simplified when no items were added or removed")
@@ -214,6 +213,55 @@
             "This item's persisted id survives the round trip, so a subsequent save updates the existing item instead of creating a duplicate")
         (is (= 202 (get-in recollapsed [:transaction/other-item :id]))
             "The other item's persisted id survives the round trip")))))
+
+(deftest expand-an-incomplete-simplified-transaction
+  (let [simple #:transaction{:transaction-date (dates/local-date "2020-01-01")
+                             :description "ACME Store"
+                             :memo "transaction memo"
+                             :account (accounts :checking)
+                             :item {:account-item/memo "checking memo"}
+                             :quantity (d -10)}]
+    (testing "without the other account"
+      (is (trx= #:transaction{:transaction-date (dates/local-date "2020-01-01")
+                              :description "ACME Store"
+                              :memo "transaction memo"
+                              :items [#:transaction-item{:account (accounts :checking)
+                                                         :memo "checking memo"
+                                                         :debit-quantity nil
+                                                         :credit-quantity (d 10)}
+                                      {}]}
+                (trx/expand simple))
+          "The date, description, memo and the entered account and quantity are kept"))
+    (testing "with only an account chosen"
+      (is (trx= #:transaction{:transaction-date (dates/local-date "2020-01-01")
+                              :items [#:transaction-item{:account (accounts :checking)
+                                                         :debit-quantity nil
+                                                         :credit-quantity nil}
+                                      {}]}
+                (trx/expand #:transaction{:transaction-date (dates/local-date "2020-01-01")
+                                          :account (accounts :checking)}))
+          "The date and account are kept"))
+    (testing "without a description"
+      (is (trx= #:transaction{:transaction-date (dates/local-date "2020-01-01")
+                              :memo "transaction memo"
+                              :items [#:transaction-item{:account (accounts :checking)
+                                                         :memo "checking memo"
+                                                         :debit-quantity nil
+                                                         :credit-quantity (d 10)}
+                                      #:transaction-item{:account (accounts :groceries)
+                                                         :debit-quantity (d 10)
+                                                         :credit-quantity nil}
+                                      {}]}
+                (trx/expand (-> simple
+                                (dissoc :transaction/description)
+                                (assoc :transaction/other-account (accounts :groceries)))))
+          "Both items are kept"))
+    (testing "without an account"
+      (is (trx= #:transaction{:transaction-date (dates/local-date "2020-01-01")
+                              :items [{}]}
+                (trx/expand #:transaction{:transaction-date (dates/local-date "2020-01-01")
+                                          :account nil}))
+          "The date is kept"))))
 
 (deftest entryfy-a-transaction
   (let [transaction #:transaction{:transaction-date "2020-01-01"
