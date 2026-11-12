@@ -21,6 +21,31 @@
     (is (http-not-found? (handler (req/request :get "/cljs-out/missing.js")))
         "The app's HTML is not served in place of the asset")))
 
+(deftest cache-a-versioned-static-asset-indefinitely
+  (let [handler (ig/init-key ::web/handler {:env env})
+        res (handler (req/request :get "/js/bootstrap.min.js?v=abc123"))]
+    (is (http-success? res)
+        "The asset is served")
+    (is (= "public, max-age=31536000, immutable"
+           (get-in res [:headers "Cache-Control"]))
+        "The asset can be cached indefinitely")))
+
+(deftest leave-the-caching-of-an-unversioned-static-asset-alone
+  (let [handler (ig/init-key ::web/handler {:env env})
+        res (handler (req/request :get "/js/bootstrap.min.js"))]
+    (is (http-success? res)
+        "The asset is served")
+    (is (nil? (get-in res [:headers "Cache-Control"]))
+        "No Cache-Control header is set")))
+
+(deftest always-revalidate-the-service-worker
+  (let [handler (ig/init-key ::web/handler {:env env})
+        res (handler (req/request :get "/service-worker.js"))]
+    (is (http-success? res)
+        "The service worker is served")
+    (is (= "no-cache" (get-in res [:headers "Cache-Control"]))
+        "Caches must check with the server before using a stored copy")))
+
 (deftest the-session-secret-is-required-at-system-initialization
   (is (thrown-with-msg? clojure.lang.ExceptionInfo
                         #"SESSION_SECRET"

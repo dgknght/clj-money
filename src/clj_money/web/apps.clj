@@ -1,10 +1,45 @@
 (ns clj-money.web.apps
-  (:require [clojure.string :as string]
+  (:require [clojure.java.io :as io]
+            [clojure.string :as string]
             [clojure.tools.logging :as log]
             [clj-money.config :refer [env]]
             [clj-money.entities :as entities]
             [clj-money.web.system :as system]
-            [hiccup.page :refer [html5 include-js]]))
+            [hiccup.page :refer [html5 include-js]]
+            [ring.util.response :as res])
+  (:import [java.security MessageDigest]
+           java.util.HexFormat))
+
+(defn- content-hash
+  [resource]
+  (with-open [in (io/input-stream resource)]
+    (let [digest (MessageDigest/getInstance "SHA-256")
+          buffer (byte-array 8192)]
+      (loop []
+        (let [n (.read in buffer)]
+          (when (pos? n)
+            (.update digest buffer 0 n)
+            (recur))))
+      (subs (.formatHex (HexFormat/of) (.digest digest)) 0 12))))
+
+(def ^:private versioned-path
+  (memoize
+    (fn [path]
+      (if-let [resource (io/resource (str "public" path))]
+        (str path "?v=" (content-hash resource))
+        path))))
+
+(defn- asset-url
+  "Returns the path to the static asset with a hash of its content in the
+  query string, so that each build of the asset has its own URL and no cache
+  (the CDN's, the browser's or the service worker's) can serve a stale copy
+  of it. The hash is computed once per asset, as the assets don't change
+  while the server runs, except in development, where figwheel rebuilds them
+  and the path is returned as-is."
+  [path]
+  (if (env :dev?)
+    path
+    (versioned-path path)))
 
 (defn- needs-setup? []
   (zero? (entities/count {} :entity-type :user)))
@@ -27,9 +62,9 @@
     (pr-str extra-config)]
 
    (include-js "https://unpkg.com/@popperjs/core@2")
-   (include-js "js/bootstrap.min.js")
+   (include-js (asset-url "/js/bootstrap.min.js"))
 
-   [:link {:rel "stylesheet" :href "/css/site.css"}]
+   [:link {:rel "stylesheet" :href (asset-url "/css/site.css")}]
    [:link {:rel "stylesheet" :href "https://cdn.jsdelivr.net/npm/bootstrap-icons@1/font/bootstrap-icons.min.css"}]])
 
 (defn index
@@ -60,7 +95,7 @@
                   "Loading..."]]]]]
              (include-js (if (env :dev?)
                            "/cljs-out/dev-main.js"
-                           "/cljs-out/clj-money.js"))]])})
+                           (asset-url "/cljs-out/clj-money.js")))]])})
 
 (defn- wrap-request-logging
   [handler]
@@ -89,6 +124,25 @@
              (not-any? #(string/starts-with? uri %) server-prefixes)
              (not (asset-path? uri)))
     (index req)))
+
+(defn wrap-asset-caching
+  "Sets the Cache-Control header on static assets. An asset requested with a
+  version (see asset-url) never changes at that URL, so it can be cached
+  indefinitely. The service worker must always be checked against the origin,
+  or the CDN would keep serving the previous build's worker after a deploy."
+  [handler]
+  (fn [{:keys [uri query-params] :as req}]
+    (when-let [response (handler req)]
+      (cond
+        (= "/service-worker.js" uri)
+        (res/header response "Cache-Control" "no-cache")
+
+        (and (#{200 304} (:status response))
+             (get query-params "v"))
+        (res/header response "Cache-Control" "public, max-age=31536000, immutable")
+
+        :else
+        response))))
 
 (def routes
   ["" {:get {:handler index

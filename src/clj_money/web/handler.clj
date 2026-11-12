@@ -240,7 +240,8 @@
   (-> (ring/ring-handler
         (router)
         (ring/routes
-          (ring/create-resource-handler {:path "/"})
+          (apps/wrap-asset-caching
+            (ring/create-resource-handler {:path "/"}))
           apps/spa-fallback
           (ring/create-default-handler)))
       (maybe-wrap-oauth2 services)

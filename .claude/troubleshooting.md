@@ -77,9 +77,14 @@ build:css`.
 
 ### New client code isn't running, or the nav throws `No protocol method IDeref.-deref defined for type undefined`
 
-The browser is running stale compiled files: the service worker serves
-`/cljs-out/...` from its cache first, and the server sends them without a
-`Cache-Control` header, so the HTTP cache may keep them too. In DevTools,
+The browser is running stale compiled files. Outside of development, the
+HTML shell requests the app's script and styles with a hash of their content
+in the query string (`clj-money.js?v=...`, see `asset-url` in
+`clj-money.web.apps`), so each build has a new URL and this shouldn't happen;
+check that the page's `<script>` tag has the `?v=`. In development (`:dev?`)
+the URLs aren't versioned: the service worker serves `/cljs-out/...` from its
+cache first, and the server sends them without a `Cache-Control` header, so
+the HTTP cache may keep them too. In DevTools,
 check "Bypass for network" (Application → Service workers) and "Disable
 cache" (Network), then reload.
 

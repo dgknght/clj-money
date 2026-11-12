@@ -1,5 +1,6 @@
 (ns clj-money.web-test
-  (:require [clojure.test :refer [deftest testing is use-fixtures]]
+  (:require [clojure.java.io :as io]
+            [clojure.test :refer [deftest testing is use-fixtures]]
             [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [ring.mock.request :as req]
@@ -9,7 +10,10 @@
             [clj-money.entities.ref]
             [clj-money.db.ref]
             [clj-money.test-helpers :refer [reset-db]]
-            [clj-money.web.test-handler :refer [app]]))
+            [clj-money.web.test-handler :refer [app]])
+  (:import java.nio.file.Files
+           java.security.MessageDigest
+           java.util.HexFormat))
 
 (use-fixtures :each reset-db)
 
@@ -29,6 +33,20 @@
             "The request basics are logged at the info level")
         (is (= [:info "Response :get \"/\" -> 200"] [l2 m2])
             "The response basics are logged at the info level")))))
+
+(deftest version-the-static-asset-urls-in-the-main-page
+  (let [res (app (req/request :get "/"))
+        expected (-> (MessageDigest/getInstance "SHA-256")
+                     (.digest (Files/readAllBytes
+                                (.toPath (io/file (io/resource "public/js/bootstrap.min.js")))))
+                     (->> (.formatHex (HexFormat/of)))
+                     (subs 0 12))]
+    (is (->> (:body res)
+             hick/parse
+             hick/as-hickory
+             (hsel/select (hsel/attr :src #(= (str "/js/bootstrap.min.js?v=" expected) %)))
+             seq)
+        "A script's URL includes a hash of its content")))
 
 (deftest an-unknown-url-returns-a-404
   (testing "that is not an api request"

@@ -1,16 +1,16 @@
 // Bump to discard caches written by earlier versions of this worker
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const SHELL_CACHE = 'shell-' + CACHE_VERSION;
 const STATIC_CACHE = 'static-' + CACHE_VERSION;
 
+// The app's script and styles aren't listed here: the shell requests them
+// with a hash of their content in the query string (?v=...), which changes
+// with each build. They're cached the first time the shell requests them.
 const SHELL_URLS = [
   '/',
-  '/css/site.css',
-  '/js/bootstrap.min.js',
   '/images/logo.svg',
   '/images/icon-192.png',
-  '/images/icon-512.png',
-  '/cljs-out/clj-money.js'
+  '/images/icon-512.png'
 ];
 
 const API_PREFIXES = ['/api/', '/oapi/', '/auth/', '/app/'];
@@ -24,6 +24,18 @@ const cacheAsset = (cache, url) =>
   fetch(url).then(response => {
     if (isCacheableAsset(response)) return cache.put(url, response);
   });
+
+// Caches the response for a versioned asset and drops the earlier builds'
+// copies of it, so they don't pile up with each deploy
+const replaceVersions = (cache, request, response) => {
+  const path = new URL(request.url).pathname;
+  return cache.keys()
+    .then(keys => Promise.all(
+      keys.filter(key => new URL(key.url).pathname === path)
+        .map(key => cache.delete(key))
+    ))
+    .then(() => cache.put(request, response));
+};
 
 self.addEventListener('install', event => {
   event.waitUntil(
@@ -72,6 +84,21 @@ self.addEventListener('fetch', event => {
           return response;
         })
         .catch(() => caches.match('/'))
+    );
+    return;
+  }
+
+  // A versioned asset never changes at its URL, so a cached copy needs no
+  // refresh
+  if (url.searchParams.has('v')) {
+    event.respondWith(
+      caches.match(request).then(cached => cached || fetch(request).then(response => {
+        if (isCacheableAsset(response)) {
+          const copy = response.clone();
+          caches.open(STATIC_CACHE).then(cache => replaceVersions(cache, request, copy));
+        }
+        return response;
+      }))
     );
     return;
   }
