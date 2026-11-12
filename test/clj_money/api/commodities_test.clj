@@ -2,6 +2,7 @@
   (:require [clojure.test :refer [deftest testing use-fixtures is]]
             [clojure.pprint :refer [pprint]]
             [clj-factory.core :refer [factory]]
+            [java-time.api :as t]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test-assertions]
             [clj-money.entities :as entities]
@@ -34,7 +35,13 @@
                        :symbol "MSFT"
                        :type :stock
                        :exchange :nasdaq
-                       :entity "Personal"}]))
+                       :entity "Personal"}
+           #:price{:commodity "MSFT"
+                   :trade-date (t/local-date 2015 1 1)
+                   :value 10M}
+           #:price{:commodity "MSFT"
+                   :trade-date (t/local-date 2015 2 1)
+                   :value 12M}]))
 
 (defn- get-a-count-of-commodities
   [email & {:keys [content-type]
@@ -128,7 +135,9 @@
       :or {expected #:commodity{:name "Microsoft, Inc"
                                 :symbol "MSFT"
                                 :type :stock
-                                :exchange :nasdaq}}}]
+                                :exchange :nasdaq
+                                :most-recent-price #:price{:trade-date (t/local-date 2015 2 1)
+                                                           :value 12M}}}}]
   (is (http-success? response))
   (is (comparable? expected parsed-body)
       "The specified commodity is returned in the response"))

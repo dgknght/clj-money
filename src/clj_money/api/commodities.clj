@@ -31,19 +31,18 @@
                               :trade-date (apply vector :between price-date-range)}
                       :sort [[:price/trade-date :desc]])))
 
-(defn- append-current-prices
-  [commodities]
-  ; TODO: performance tuning opportunity - reduces the number of queries here
-  (map #(assoc %
-               :commodity/most-recent-price
-               (fetch-current-price %))
-       commodities))
+(defn- append-current-price
+  [commodity]
+  (assoc commodity
+         :commodity/most-recent-price
+         (fetch-current-price commodity)))
 
 (defn- index
   [req]
+  ; TODO: performance tuning opportunity - reduces the number of queries here
   (->> (entities/select (extract-criteria req)
                         :sort [:commodity/symbol])
-       append-current-prices
+       (map append-current-price)
        api/response))
 
 (defn- find-and-authorize
@@ -57,7 +56,7 @@
 (defn- show
   [req]
   (if-let [comm (find-and-authorize req ::authorization/show)]
-    (api/response comm)
+    (api/response (append-current-price comm))
     api/not-found))
 
 (def ^:private attribute-keys

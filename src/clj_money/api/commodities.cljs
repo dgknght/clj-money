@@ -1,5 +1,5 @@
 (ns clj-money.api.commodities
-  (:refer-clojure :exclude [update count])
+  (:refer-clojure :exclude [update count find])
   (:require [clj-money.state :refer [current-entity]]
             [clj-money.entities.schema :as schema]
             [clj-money.api :as api :refer [add-error-handler]]))
@@ -18,6 +18,14 @@
            (add-error-handler
              opts
              "Unable to retrieve the commodities: %s")))
+
+(defn find
+  "Gets the commodity, including its :commodity/most-recent-price"
+  [commodity & {:as opts}]
+  (api/get (api/path :commodities commodity)
+           (add-error-handler
+             opts
+             "Unable to retrieve the commodity: %s")))
 
 (defn create
   [{:as commodity :commodity/keys [entity]} opts]

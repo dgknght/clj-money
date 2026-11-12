@@ -1,13 +1,12 @@
 (ns clj-money.views.accounts.lots
   "The lots of a tradable account (the shares of one commodity held in an
   investment account), with their gains and losses at the latest price.
-  Loads the lots and prices itself when it's mounted:
+  Loads the lots and the commodity's latest price itself when it's mounted:
   [lots-table account]"
   (:require [goog.string :as gstr]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [reagent.format :refer [currency-format]]
-            [cljs-time.core :as t]
             [dgknght.app-lib.web :refer [format-percent
                                          format-date
                                          format-decimal]]
@@ -16,7 +15,7 @@
             [clj-money.dates :refer [serialize-local-date]]
             [clj-money.components :refer [audit-history-popover]]
             [clj-money.api.lots :as lots]
-            [clj-money.api.prices :as prices]
+            [clj-money.api.commodities :as commodities]
             [clj-money.api.audit :as audit]))
 
 (defn- load-lot-audit!
@@ -35,13 +34,14 @@
                   (doseq [lot lots]
                     (load-lot-audit! state lot)))))
 
-(defn- load-prices
-  [state {:account/keys [commodity transaction-date-range]}]
-  (when transaction-date-range
-    (prices/select
-      #:price{:commodity commodity
-              :trade-date (apply vector :between transaction-date-range)}
-      :on-success #(swap! state assoc :prices %))))
+(defn- load-latest-price
+  [state {:account/keys [commodity]}]
+  (commodities/find
+    commodity
+    :on-success #(swap! state
+                        assoc
+                        :latest-price
+                        (:commodity/most-recent-price %))))
 
 (defn- toggle-lot-audit!
   [state lot]
@@ -95,10 +95,7 @@
         held-lots (make-reaction
                     #(filter (comp pos? :lot/shares-owned)
                              @lots))
-        prices (r/cursor state [:prices])
-        latest-price (make-reaction #(->> @prices
-                                          (sort-by :price/trade-date t/after?)
-                                          first))
+        latest-price (r/cursor state [:latest-price])
         total-shares (make-reaction #(->> @lots
                                           (map :lot/shares-owned)
                                           (reduce decimal/+)))
@@ -112,7 +109,7 @@
                                         (reduce +)))
         gain-loss (make-reaction #(- @total-value @total-cost))]
     (load-lots state account)
-    (load-prices state account)
+    (load-latest-price state account)
     (fn []
       [:table.table.table-hover.table-borderless
        [:thead
