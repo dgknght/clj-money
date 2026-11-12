@@ -2,6 +2,7 @@
   (:require [clojure.string :as string]
             [cljs.pprint :refer [pprint]]
             [cljs.core.async :refer [<! go]]
+            [goog.object :as gobj]
             [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
@@ -905,9 +906,13 @@
    :portfolio
    :account-history])
 
+; Bootstrap has no externs, so look its properties up by string to
+; keep advanced compilation from renaming them
 (defn- show-options []
   (when-let [elem (.getElementById js/document "report-options")]
-    (.show (.getOrCreateInstance (.-Offcanvas js/bootstrap) elem))))
+    (-> (gobj/get js/bootstrap "Offcanvas")
+        (js-invoke "getOrCreateInstance" elem)
+        (js-invoke "show"))))
 
 (defn- report-selected
   "Loads the newly selected report if it hasn't been loaded yet. The account
