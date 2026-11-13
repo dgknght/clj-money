@@ -21,6 +21,7 @@
             [clj-money.util :as util]
             [clj-money.routes :refer [server-path? public-path?]]
             [clj-money.icons :refer [icon icon-with-text]]
+            [clj-money.components :refer [accent-swatch]]
             [clj-money.views.entities]
             [clj-money.views.imports]
             [clj-money.views.commodities]
@@ -152,20 +153,25 @@
   "Renders the navbar. With :bottom-nav?, small screens get their nav items
   from the bottom tab bar, so the navbar keeps only the brand, the entity and
   the profile menu."
-  [items entity-name {:keys [profile-photo-url authenticated? bottom-nav?]}]
+  [items entity {:keys [profile-photo-url authenticated? bottom-nav?]}]
   [:nav.navbar.navbar-expand-lg.bg-body-tertiary.d-print-none
+   (when-let [color (get-in entity [:entity/settings :settings/accent-color])]
+     {:class "entity-accented"
+      :style {:border-bottom-color color}})
    [:div.container
     [:a.navbar-brand {:href "/"}
      [:img {:src "/images/logo.svg"
             :alt "abacus logo"
             :width 24
             :height 24}]]
-    (when entity-name
-      [:a.navbar-brand {:data-bs-toggle "offcanvas"
-                        :data-bs-target "#entity-selection"
-                        :role :button
-                        :aria-controls "entity-selection"}
-       entity-name])
+    (when entity
+      [:a.navbar-brand.d-flex.align-items-center
+       {:data-bs-toggle "offcanvas"
+        :data-bs-target "#entity-selection"
+        :role :button
+        :aria-controls "entity-selection"}
+       (accent-swatch entity)
+       (:entity/name entity)])
     [:button.navbar-toggler {:type :button
                              :class (when bottom-nav? "d-none")
                              :data-bs-toggle :collapse
@@ -260,7 +266,7 @@
   [items bottom-nav?]
   (navbar
     items
-    (:entity/name @current-entity)
+    @current-entity
     {:profile-photo-url @state/profile-photo-url
      :authenticated? (boolean @current-user)
      :bottom-nav? bottom-nav?}))
@@ -296,12 +302,13 @@
              (->> @entities
                   (map (fn [entity]
                          ^{:key (str "entity-selection-" (:id entity))}
-                         [:button.list-group-item
+                         [:button.list-group-item.d-flex.align-items-center
                           {:on-click #(swap! app-state assoc :current-entity entity)
                            :data-bs-dismiss :offcanvas
                            :class (when (= (:id entity)
                                            (:id current))
                                     "active")}
+                          (accent-swatch entity)
                           (:entity/name entity)]))))]]
          [:div.col-md-3
           [:ul.nav.nav-pills.nav-fill.flex-md-column

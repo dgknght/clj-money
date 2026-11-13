@@ -564,6 +564,9 @@
                    (nil? v)
                    (conj res (conj prefix k))
 
+                   (map? v)
+                   (into res (locate-nils v (conj prefix k)))
+
                    (and (sequential? v)
                         (map? (first v)))
                    (apply concat res (map-indexed

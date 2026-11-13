@@ -181,6 +181,14 @@
         (icons/icon icon))
       (when caption [:span.ms-1 caption])]]))
 
+(defn accent-swatch
+  "Renders a small circle filled with an entity's accent color, or nothing
+  if the entity has none"
+  [{{:settings/keys [accent-color]} :entity/settings}]
+  (when accent-color
+    [:span.accent-swatch {:style {:background-color accent-color}
+                          :aria-hidden true}]))
+
 (defn audit-history-popover
   "Renders a clock-history button that shows a floating popover table
   with the history of an attribute value. Only renders when history is

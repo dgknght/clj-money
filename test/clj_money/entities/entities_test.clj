@@ -204,6 +204,30 @@
           (is (= expected (ingestion-settings (entities/find-by {:entity/name "Personal"})))
               "The removals persist when the entity is re-fetched"))))))
 
+(dbtest set-and-clear-an-accent-color
+  (with-context list-context
+    (let [entity (entities/put (assoc (find-entity "Personal")
+                                      :entity/settings
+                                      {:settings/accent-color "#336699"}))]
+      (is (= "#336699"
+             (get-in (entities/find-by {:entity/name "Personal"})
+                     [:entity/settings :settings/accent-color]))
+          "The color persists when the entity is re-fetched")
+      (entities/put (assoc-in entity
+                              [:entity/settings :settings/accent-color]
+                              nil))
+      (is (nil? (get-in (entities/find-by {:entity/name "Personal"})
+                        [:entity/settings :settings/accent-color]))
+          "The color can be removed"))))
+
+(dbtest accent-color-must-be-a-hex-color
+  (with-context list-context
+    (assert-invalid (assoc (find-entity "Personal")
+                           :entity/settings
+                           {:settings/accent-color "blue"})
+                    {:entity/settings
+                     {:settings/accent-color ["Accent color is invalid"]}})))
+
 (dbtest delete-an-entity
   (with-context list-context
     (assert-deleted (find-entity "Personal"))))

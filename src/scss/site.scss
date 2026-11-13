@@ -313,6 +313,22 @@ $bottom-nav-height: 3.5rem;
   }
 }
 
+// An entity's accent color (issue #60): a stripe under the navbar while the
+// entity is current, and a swatch beside the entity's name
+.navbar.entity-accented {
+  border-bottom: 4px solid;
+}
+
+.accent-swatch {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 0.75em;
+  height: 0.75em;
+  margin-right: 0.4em;
+  border-radius: 50%;
+  border: 1px solid var(--bs-border-color);
+}
+
 // Vertically center a checkbox field on the inputs beside it in a form row.
 // The bootstrap-5 checkbox decorator nests .mb-3 > .mb-3.form-check, which
 // leaves the check box sitting near the top of the neighboring inputs.

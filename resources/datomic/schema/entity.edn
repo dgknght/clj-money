@@ -70,4 +70,8 @@
  {:db/ident :settings/expense-hints
   :db/valueType :db.type/string
   :db/cardinality :db.cardinality/one
-  :db/doc "A list of hints to add to the prompt given to the LLM when ingesting a receipt."}]
+  :db/doc "A list of hints to add to the prompt given to the LLM when ingesting a receipt."}
+ {:db/ident :settings/accent-color
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/doc "The color (e.g. \"#336699\") used to accent the app while the entity is the current entity"}]

@@ -230,6 +230,22 @@
                  (update-in [:settings/expense-accounts] (partial into #{} (map util/->entity-ref)))))
           "The settings are persisted"))))
 
+(deftest accent-color-can-be-edited
+  (with-context list-context
+    (let [[res retrieved] (edit-an-entity
+                            "john@doe.com"
+                            :content-type "application/json"
+                            :changes {:settings {:accentColor "#336699"
+                                                 :_type :settings}
+                                      :_type :entity})]
+      (is (http-success? res))
+      (is (= "#336699"
+             (get-in res [:parsed-body :settings :accentColor]))
+          "The response contains the color")
+      (is (comparable? {:entity/settings {:settings/accent-color "#336699"}}
+                       retrieved)
+          "The color is persisted"))))
+
 (deftest a-user-cannot-edit-anothers-entity
   (with-context list-context
     (assert-blocked-edit (edit-an-entity "jane@doe.com"))))

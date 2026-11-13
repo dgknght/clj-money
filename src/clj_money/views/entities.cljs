@@ -12,7 +12,7 @@
                                                       select-field]]
             [dgknght.app-lib.forms-validation :as v]
             [clj-money.util :as util :refer [id=]]
-            [clj-money.components :refer [button]]
+            [clj-money.components :refer [button accent-swatch]]
             [clj-money.icons :refer  [icon]]
             [clj-money.api.entities :as entities]
             [clj-money.api.commodities :as commodities]
@@ -37,7 +37,7 @@
                       entity
                       {:sort-key :entity/name}
                       %))
-        (update-in [:currenty-entity]
+        (update-in [:current-entity]
                    (fn [e]
                      (if (or (nil? e)
                              (id= e entity))
@@ -125,6 +125,31 @@
                                     (conj tags kw)))))
                    (dissoc ::working-budget-tag)))))))
 
+(def ^:private default-picker-color
+  "The color the picker shows before an accent color is chosen"
+  "#6c757d")
+
+(defn- accent-color-field
+  [entity]
+  (let [color (r/cursor entity [:entity/settings :settings/accent-color])]
+    (fn []
+      [:div.mb-3
+       [:label.form-label {:for "accent-color"} "Accent color"]
+       [:div.d-flex.align-items-center
+        [:input#accent-color.form-control.form-control-color
+         {:type :color
+          :value (or @color default-picker-color)
+          :title "Click here to choose the color that marks this entity as the current one."
+          :on-change #(reset! color (.. % -target -value))}]
+        (if @color
+          [:button.btn.btn-link.btn-sm.ms-2
+           {:type :button
+            :title "Click here to remove the accent color."
+            :on-click #(reset! color nil)}
+           "Clear"]
+          [:span.text-muted.ms-2 "None"])]
+       [:div.form-text "Shown across the top of the app while this is the current entity."]])))
+
 (defn- entity-form
   [page-state]
   (let [entity (r/cursor page-state [:selected])
@@ -157,6 +182,7 @@
           comm-opts
           {:transform-fn parse-int
            :caption "Default commodity"}]
+         [accent-color-field entity]
          #_[radio-buttons [:entity/settings :settings/inventory-method] ["fifo" "lifo"]]
          [:fieldset
           [:legend "Budget Tags"]
@@ -217,7 +243,10 @@
   [entity page-state busy?]
   ^{:key (str "entity-row-" (:id entity))}
   [:tr
-   [:td (:entity/name entity)]
+   [:td
+    [:span.d-flex.align-items-center
+     (accent-swatch entity)
+     (:entity/name entity)]]
    [:td.text-end
     [:div.btn-group
      [:button.btn.btn-sm.btn-secondary

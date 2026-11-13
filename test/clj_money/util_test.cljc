@@ -412,7 +412,12 @@
                             :others [{:one 1
                                       :two nil}
                                      {:one nil
-                                      :two 2}]}))))
+                                      :two 2}]})))
+  (is (= [[:settings :absent]]
+         (util/locate-nils {:present :here
+                            :settings {:present :here
+                                       :absent nil}}))
+      "Nils in nested maps are located"))
 
 (deftest ensure-a-entity-has-an-id
   (is (= {:id 1} (util/+id {} (constantly 1)))
