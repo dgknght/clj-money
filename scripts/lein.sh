@@ -10,6 +10,13 @@
 #
 # Usage: ./scripts/lein.sh <task> [args...]
 #   e.g. ./scripts/lein.sh re-index -e Personal
+#        ./scripts/lein.sh repl
+#
+# When run from a terminal, a TTY is allocated end to end (ssh -t,
+# docker run -it), so interactive tasks like `repl` work and Ctrl-C
+# reaches the container. Without a terminal (cron, piped input) no TTY
+# is requested, since docker would fail with "the input device is not
+# a TTY".
 set -euo pipefail
 
 DOCKER_HOST_SSH=root@docker-host
@@ -52,8 +59,24 @@ if [ -n "$stale_volumes" ]; then
   echo "Run ./scripts/prune-lein-cache.sh to remove them." >&2
 fi
 
+# `lein repl` can't work here: `with-profile util` replaces lein's
+# default profiles, so neither nREPL (from :base) nor integrant/repl
+# (from :dev, needed by the clj-money.repl :init-ns) is on the
+# classpath. A plain clojure.main REPL needs neither. trampoline hands
+# stdin straight to the task's JVM instead of proxying it through lein.
+if [[ "${1:-}" == "repl" ]]; then
+  set -- trampoline run -m clojure.main
+fi
+
+TTY_SSH=()
+TTY_DOCKER=()
+if [[ -t 0 && -t 1 ]]; then
+  TTY_SSH=(-t)
+  TTY_DOCKER=(-it)
+fi
+
 remote_cmd=$(printf '%q ' \
-  docker run --rm \
+  docker run --rm ${TTY_DOCKER[@]+"${TTY_DOCKER[@]}"} \
   --network "$NETWORK" \
   --memory "$DOCKER_MEMORY" --memory-swap "$DOCKER_MEMORY" \
   -e "LEIN_JVM_OPTS=$LEIN_JVM_OPTS" \
@@ -64,4 +87,4 @@ remote_cmd=$(printf '%q ' \
   "dgknght/clj-money-util:$VERSION" \
   lein with-profile util "$@")
 
-ssh "$DOCKER_HOST_SSH" "$remote_cmd"
+ssh ${TTY_SSH[@]+"${TTY_SSH[@]}"} "$DOCKER_HOST_SSH" "$remote_cmd"

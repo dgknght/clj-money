@@ -234,7 +234,7 @@
             "purge-entity"          ["run" "-m" "clj-money.tasks/purge-entity"]
             "er-diagram"            ["run" "-m" "clj-money.tasks/er-diagram"]
             "re-index"              ["run" "-m" "clj-money.tasks/re-index"]
-            "routes"                ["run" "-m" "clj-money.repl/print-routes"]
+            "routes"                ["run" "-m" "clj-money.tasks/print-routes"]
             "eval-receipts"         ["run" "-m" "clj-money.ingestion.evaluation/run"]
             "fig:prod"              ["run" "-m" "figwheel.main" "-O" "advanced" "-bo" "prod"]
             "fig:build"             ["trampoline" "run" "-m" "figwheel.main" "-b" "dev" "-r"]

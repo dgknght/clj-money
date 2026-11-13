@@ -2,6 +2,8 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.edn :as edn]
             [clojure.data.csv :as csv]
+            [clojure.string :as string]
+            [reitit.core :as reitit]
             [java-time.api :as t]
             [clj-money.cli :refer [with-options
                                    default-options]]
@@ -11,6 +13,7 @@
             [clj-money.entities.ref]
             [clj-money.db.ref]
             [clj-money.entities :as entities]
+            [clj-money.web.handler :as h]
             [clj-money.accounts :refer [nest
                                         unnest
                                         polarize-quantity]]
@@ -325,3 +328,17 @@
                 (mapcat er-entity schema/entities)
                 (mapcat er-relationships schema/entities))]
     (doseq [l lines] (println l))))
+
+(defn print-routes []
+  (doseq [[method path handler]
+          (->> (reitit/compiled-routes (h/router))
+               (mapcat (fn [[path opts]]
+                         (->> [:get :post :put :patch :delete]
+                              (map (juxt identity opts))
+                              (filter (comp identity second))
+                              (map (fn [[method opts]]
+                                     [method path (:handler opts)]))))))]
+    (println (string/upper-case (name method))
+             path
+             "->"
+             (class handler))))

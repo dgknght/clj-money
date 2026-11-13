@@ -1,14 +1,11 @@
 (ns clj-money.repl
   (:require [clojure.pprint :refer [pprint]]
             [clojure.java.io :as io]
-            [clojure.string :as string]
-            [reitit.core :as reitit]
             [integrant.core :as ig]
             ; referred for use at the REPL
             #_{:clj-kondo/ignore [:unused-referred-var]}
             [integrant.repl :refer [go halt reset]]
             [integrant.repl.state :as state]
-            [clj-money.web.handler :as h]
             [clj-money.system :as system]
             [clj-money.entities :as entities]
             [clj-money.util :as util]
@@ -19,20 +16,6 @@
             [clj-money.entities.propagation :as prop]
             [clj-money.entities.transactions :as trx]
             [clj-money.entities.prices :as prices]))
-
-(defn print-routes []
-  (doseq [[method path handler]
-          (->> (reitit/compiled-routes (h/router))
-               (mapcat (fn [[path opts]]
-                         (->> [:get :post :put :patch :delete]
-                              (map (juxt identity opts))
-                              (filter (comp identity second))
-                              (map (fn [[method opts]]
-                                     [method path (:handler opts)]))))))]
-    (println (string/upper-case (name method))
-             path
-             "->"
-             (class handler))))
 
 ; Use (go), (halt) and (reset) from integrant.repl to manage the system
 (integrant.repl/set-prep!
