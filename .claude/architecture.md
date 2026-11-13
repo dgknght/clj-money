@@ -85,7 +85,10 @@ into the caller's page state (issue #281).
   time ("Load more"), keyed by end of period rather than an offset, which
   Datomic can't apply before sorting; `reconciliations/split-page` leaves the
   last date of a full page for the next one so none on that date are
-  skipped. An unfinished one links to `/accounts/:id/reconcile`; a statement upload
+  skipped. It asks for `omit-items=true`: a reconciliation is otherwise read
+  with all of its transaction items (`after-read`, or SQL's `post-select`),
+  which made each page hundreds of KB (issue #346). The `:omit-items?` select
+  option skips them. An unfinished one links to `/accounts/:id/reconcile`; a statement upload
   sits under the table. It requires `accountant`, which can't be loaded by
   the client tests, so the accounts views link to it rather than navigate
 - `views/bottom_nav.cljs` - the tab bar fixed to the bottom of screens below

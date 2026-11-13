@@ -4,13 +4,15 @@
             [clj-money.db.sql :as sql]))
 
 (defmethod sql/post-select :reconciliation
-  [{:keys [storage]} reconciliations]
-  (map #(assoc %
-               :reconciliation/items
-               (db/select storage
-                          {:transaction-item/reconciliation %}
-                          {:select-also [:transaction/transaction-date]}))
-       reconciliations))
+  [{:keys [storage omit-items?]} reconciliations]
+  (if omit-items?
+    reconciliations
+    (map #(assoc %
+                 :reconciliation/items
+                 (db/select storage
+                            {:transaction-item/reconciliation %}
+                            {:select-also [:transaction/transaction-date]}))
+         reconciliations)))
 
 (defmethod sql/deconstruct :reconciliation
   [{:as recon :keys [id] :reconciliation/keys [items]}]

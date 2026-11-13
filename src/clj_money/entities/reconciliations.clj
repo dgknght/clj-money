@@ -290,9 +290,11 @@
            (fetch-transaction-items recon))))
 
 (defmethod entities/after-read :reconciliation
-  [recon _opts]
+  [recon {:keys [omit-items?]}]
   (when recon
-    (append-transaction-items recon)))
+    (if omit-items?
+      (dissoc recon :reconciliation/items)
+      (append-transaction-items recon))))
 
 (defmethod entities/before-delete :reconciliation
   [{:as recon :reconciliation/keys [account end-of-period]}]

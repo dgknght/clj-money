@@ -38,7 +38,9 @@
 (defn- criteria
   [{:keys [account start-date end-date status]} on-or-before]
   (let [on-or-before (or on-or-before end-date)]
-    (cond-> {:desc :reconciliation/end-of-period}
+    ; the list doesn't show the items, which can be thousands per page
+    (cond-> {:desc :reconciliation/end-of-period
+             :omit-items true}
       account (assoc :reconciliation/account account)
       status (assoc :reconciliation/status status)
       start-date (assoc :reconciliation/end-of-period-on-or-after start-date)

@@ -63,6 +63,19 @@
                          :items [[(t/local-date 2017 1 1)
                                   1000M]]}))
 
+(dbtest select-reconciliations-without-their-items
+  (with-context existing-reconciliation-context
+    (let [criteria {:reconciliation/account (find-account "Checking")}]
+      (is (= [1]
+             (map (comp count :reconciliation/items)
+                  (entities/select criteria)))
+          "The items are included by default")
+      (let [[recon :as recons] (entities/select criteria :omit-items? true)]
+        (is (= 1 (count recons))
+            "The reconciliations are returned with :omit-items?")
+        (is (not (contains? recon :reconciliation/items))
+            "The items are left out with :omit-items?")))))
+
 (def ^:private working-recon-context
   (conj existing-reconciliation-context
         #:reconciliation{:account "Checking"

@@ -167,6 +167,26 @@
                                           :reconciliation_end-of-period-on-or-after "2015-01-05"})
         :expected [#:reconciliation{:end-of-period (t/local-date 2015 1 11)}]))))
 
+(deftest a-user-can-get-reconciliations-without-their-items
+  (with-context two-recons-context
+    (testing "with the items, by default"
+      (let [{:keys [parsed-body]} (get-entity-reconciliations-page
+                                    {:desc "end-of-period"})]
+        (is (= [1 3]
+               (map (comp count :reconciliation/items) parsed-body))
+            "Each reconciliation includes its items")))
+    (testing "without the items"
+      (let [{:as response :keys [parsed-body]} (get-entity-reconciliations-page
+                                                 {:desc "end-of-period"
+                                                  :omit-items true})]
+        (is (http-success? response))
+        (is (= [(t/local-date 2015 1 11)
+                (t/local-date 2015 1 4)]
+               (map :reconciliation/end-of-period parsed-body))
+            "The reconciliations are returned")
+        (is (not-any? :reconciliation/items parsed-body)
+            "The items are left out")))))
+
 (deftest a-user-cannot-get-the-reconciliations-in-anothers-entity
   (with-context recon-context
     (assert-blocked-get (get-entity-reconciliations "jane@doe.com"))))

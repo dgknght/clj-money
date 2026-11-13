@@ -78,8 +78,9 @@
   aren't reconciled yet"
   [page-state account]
   (when account
-    (recs-api/select #:reconciliation{:account account
-                                      :status :new}
+    (recs-api/select {:reconciliation/account account
+                      :reconciliation/status :new
+                      :omit-items true}
                      :on-success #(swap! page-state
                                          assoc
                                          :open-reconciliation-ids

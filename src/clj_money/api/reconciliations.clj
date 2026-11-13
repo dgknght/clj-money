@@ -55,8 +55,10 @@
   [{:keys [params]}]
   (-> params
       translate-sort
-      (select-keys [:limit :sort])
-      (update-in-if [:limit] parse-long)))
+      (rename-keys {:omit-items :omit-items?})
+      (select-keys [:limit :sort :omit-items?])
+      (update-in-if [:limit] parse-long)
+      (update-in-if [:omit-items?] parse-bool)))
 
 (defn- index
   [req]
