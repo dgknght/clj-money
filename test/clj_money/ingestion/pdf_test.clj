@@ -3,7 +3,8 @@
             [clojure.java.io :as io]
             [dgknght.app-lib.test-assertions]
             [clj-money.ingestion.pdf :as pdf]
-            [clj-money.ingestion.helpers :as hlp :refer [read-statement]])
+            [clj-money.ingestion.helpers :as hlp :refer [read-receipt
+                                                          read-statement]])
   (:import java.io.ByteArrayOutputStream
            javax.imageio.ImageIO
            [org.apache.pdfbox.pdmodel PDDocument PDPage]))
@@ -56,3 +57,37 @@
            (let [image (ImageIO/read (io/input-stream (first page-images)))]
              [(.getWidth image) (.getHeight image)]))
         "The page is rendered at the given resolution")))
+
+(deftest read-a-pdf-receipt
+  (let [{:keys [result]
+         {[[{:keys [page-images]} _ opts]] :read-receipt
+          :keys [close]} :calls}
+        (read-receipt (blank-pdf 2)
+                      :dpi 72
+                      :provider ::pdf/pdf
+                      :model "m")]
+    (is (= ::hlp/result result)
+        "The inner reader result is returned")
+    (is (= 2 (count page-images))
+        "The inner reader is given an image of each page")
+    (is (= [612 792]
+           (let [image (ImageIO/read (io/input-stream (first page-images)))]
+             [(.getWidth image) (.getHeight image)]))
+        "The page is rendered at the given resolution")
+    (is (= "m" (:model opts))
+        "The options are passed to the inner reader")
+    (is (= 1 close)
+        "The inner reader is closed")))
+
+(deftest an-image-receipt-is-passed-on
+  (let [image (.readAllBytes (io/input-stream (io/file "fixtures/sample_receipt.jpg")))
+        {{[[source]] :read-receipt} :calls}
+        (read-receipt (io/input-stream image)
+                      :provider ::pdf/pdf)]
+    (is (= (seq image) (seq source)))))
+
+(deftest the-contents-of-a-receipt-are-passed-on
+  (let [{{[[contents]] :read-receipt} :calls}
+        (read-receipt {:text "Kroger"}
+                      :provider ::pdf/pdf)]
+    (is (= {:text "Kroger"} contents))))

@@ -9,19 +9,27 @@
   [input]
   (base64/encode (read-bytes input)))
 
+(defn- encode-pages
+  [{:keys [page-images] :as contents}]
+  (if page-images
+    {:images (mapv encode page-images)}
+    contents))
+
 (defn- receipt-reader
   "Decorates a receipt reader that is sent images base64-encoded, so that
-  it's given {:images [base64 ...]} in place of the image. The image is sent
-  as it is, so configure this under a :clj-money.ingestion.scale/scale
-  reader to send a smaller one. A receipt's contents, already read (e.g.,
-  the text of an email), are passed on as they are."
+  it's given {:images [base64 ...]} in place of the image or, for a PDF
+  receipt (see clj-money.ingestion.pdf), the images of its pages. The
+  images are sent as they are, so configure this under a
+  :clj-money.ingestion.scale/scale reader to send smaller ones. A receipt's
+  contents, already read (e.g., the text of an email), are passed on as
+  they are."
   [reader]
   (reify
     ing/ReceiptReader
     (read-receipt [_ source entity opts]
       (ing/read-receipt reader
                         (if (map? source)
-                          source
+                          (encode-pages source)
                           {:images [(encode source)]})
                         entity
                         opts))
@@ -36,11 +44,9 @@
   [reader]
   (reify
     ing/StatementReader
-    (read-statement [_ {:keys [page-images] :as contents} entity opts]
+    (read-statement [_ contents entity opts]
       (ing/read-statement reader
-                          (if page-images
-                            {:images (mapv encode page-images)}
-                            contents)
+                          (encode-pages contents)
                           entity
                           opts))
     ing/Closeable

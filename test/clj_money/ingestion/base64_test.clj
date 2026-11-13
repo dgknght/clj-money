@@ -86,3 +86,30 @@
         (read-receipt {:text "Kroger"}
                       :provider ::base64/base64)]
     (is (= {:text "Kroger"} contents))))
+
+(deftest a-receipt-reader-can-be-given-the-pages-base64-encoded
+  (let [{{[[contents]] :read-receipt} :calls}
+        (read-receipt {:page-images [(.getBytes "page 1")
+                                     (.getBytes "page 2")]}
+                      :provider ::base64/base64)]
+    (is (= {:images ["page 1" "page 2"]}
+           (update-in contents [:images] #(map (fn [i] (String. (decode i))) %)))
+        "Each page is base64-encoded")))
+
+(deftest the-pages-of-a-pdf-receipt-can-be-scaled-and-encoded
+  (let [inner (inspectable-reader)]
+    (ing/read-receipt (ing/receipt-reader
+                        {::ing/provider ::pdf/pdf
+                         :dpi 72
+                         :reader {::ing/provider ::scale/scale
+                                  :max-image-dimension 100
+                                  :reader {::ing/provider ::base64/base64
+                                           :reader inner}}})
+                      (blank-pdf 2)
+                      {:id 1}
+                      {})
+    (is (= [[77 100] [77 100]]
+           (map #(let [image (ImageIO/read (ByteArrayInputStream. (decode %)))]
+                   [(.getWidth image) (.getHeight image)])
+                (get-in (hlp/calls inner) [:read-receipt 0 0 :images])))
+        "Each page is rendered, scaled, and encoded")))

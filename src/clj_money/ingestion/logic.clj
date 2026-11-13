@@ -4,9 +4,13 @@
 
     {:clj-money.ingestion/provider :clj-money.ingestion.logic/or
      :alternatives [{:clj-money.ingestion/provider :clj-money.ingestion.ocr/ocr}
-                    {:clj-money.ingestion/provider :clj-money.ingestion.scale/scale
-                     :reader {:clj-money.ingestion/provider :clj-money.ingestion.base64/base64}}]
+                    {:clj-money.ingestion/provider :clj-money.ingestion.pdf/pdf
+                     :reader {:clj-money.ingestion/provider :clj-money.ingestion.scale/scale
+                              :reader {:clj-money.ingestion/provider :clj-money.ingestion.base64/base64}}}]
      :reader {:clj-money.ingestion/provider :clj-money.ingestion.ollama/ollama}}
+
+  The pdf reader gives the vision model, which can't open a PDF, images of
+  the pages of a PDF receipt in its place.
 
   Each alternative is a chain of decorators that ends with the :reader, which
   is configured under the :reader of the innermost decorator, and is shared by

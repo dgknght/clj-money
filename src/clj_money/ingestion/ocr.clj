@@ -7,7 +7,6 @@
   (see clj-money.ingestion.logic)."
   (:require [clojure.string :as str]
             [clojure.tools.logging :as log]
-            [clj-money.content-type :as ct]
             [clj-money.io :refer [read-bytes]]
             [clj-money.pdf :as pdf]
             [clj-money.ingestion :as ing]
@@ -16,10 +15,6 @@
             [clj-money.shell :as shell])
   (:import java.io.IOException
            clojure.lang.ExceptionInfo))
-
-(defn- pdf?
-  [content]
-  (= "application/pdf" (ct/sniff content)))
 
 (defn- image-text
   "Returns the text read from the image by the tesseract command. A small
@@ -68,7 +63,7 @@
   text of the PDF or, if it has none (e.g., it was scanned from paper), the
   text read from images of its pages"
   [content opts]
-  (let [text (if (pdf? content)
+  (let [text (if (ing-pdf/pdf? content)
                (or (ing-pdf/text content)
                    (->> (pdf/page-images content :dpi 300)
                         (map #(image-text % opts))

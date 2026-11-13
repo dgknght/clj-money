@@ -94,3 +94,12 @@
         (read-receipt {:text "Kroger"}
                       :provider ::scale/scale)]
     (is (= {:text "Kroger"} contents))))
+
+(deftest read-a-pdf-receipt
+  (let [{{[[{:keys [page-images]}]] :read-receipt} :calls}
+        (read-receipt {:page-images [(image-bytes 400 200)
+                                     (image-bytes 200 400)]}
+                      :provider ::scale/scale
+                      :max-image-dimension 100)]
+    (is (= [[100 50] [50 100]] (map dimensions page-images))
+        "Each page is scaled to the configured maximum")))

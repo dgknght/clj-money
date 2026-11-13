@@ -40,17 +40,27 @@
            :or {max-image-dimension 1280}}]
   (shrink (read-bytes source) max-image-dimension))
 
+(defn- shrink-pages
+  [{:keys [page-images] :as contents} opts]
+  (if page-images
+    (assoc contents
+           :page-images
+           (mapv #(shrink-source % opts) page-images))
+    contents))
+
 (defn- receipt-reader
   "Decorates a receipt reader, so that it's given the image scaled down (see
-  scale-image) in place of the image. A receipt's contents, already read
-  (e.g., the text of an email), are passed on as they are."
+  shrink) in place of the image, or, for a PDF receipt (see
+  clj-money.ingestion.pdf), the images of its pages scaled down. A
+  receipt's contents, already read (e.g., the text of an email), are passed
+  on as they are."
   [reader opts]
   (reify
     ing/ReceiptReader
     (read-receipt [_ source entity read-opts]
       (ing/read-receipt reader
                         (if (map? source)
-                          source
+                          (shrink-pages source opts)
                           (shrink-source source opts))
                         entity
                         read-opts))
@@ -60,17 +70,13 @@
 (defn- statement-reader
   "Decorates a statement reader, so that the images of the pages of the
   statement it's given (see clj-money.ingestion.pdf) are scaled down (see
-  scale-image). A statement's text is passed on as it is."
+  shrink). A statement's text is passed on as it is."
   [reader opts]
   (reify
     ing/StatementReader
-    (read-statement [_ {:keys [page-images] :as contents} entity read-opts]
+    (read-statement [_ contents entity read-opts]
       (ing/read-statement reader
-                          (if page-images
-                            (assoc contents
-                                   :page-images
-                                   (mapv #(shrink-source % opts) page-images))
-                            contents)
+                          (shrink-pages contents opts)
                           entity
                           read-opts))
     ing/Closeable

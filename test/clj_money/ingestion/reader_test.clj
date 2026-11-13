@@ -97,9 +97,9 @@
     (is (= ["recording"] @closed)
         "Closing the reader closes the reader it decorates")))
 
-(deftest a-decorator-of-statements-cant-read-receipts
+(deftest a-provider-that-cant-read-receipts-is-explained
   (is (thrown-with-msg? clojure.lang.ExceptionInfo
                         #"can't read receipts"
                         (ig/init-key ::ing/receipt-reader
-                                     {::ing/provider ::pdf/pdf
-                                      :reader {::ing/provider ::stub}}))))
+                                     {::ing/provider ::recording
+                                      :read (atom nil)}))))

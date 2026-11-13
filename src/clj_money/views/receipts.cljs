@@ -245,7 +245,7 @@
                       :failed
                       (do
                         (if (= :not-a-receipt failure-reason)
-                          (notify/info "That email isn't a receipt.")
+                          (notify/info "That file isn't a receipt.")
                           (notify/dangerf "Unable to read the receipt: %s" error))
                         (clear-ingestion page-state))
 
@@ -287,21 +287,21 @@
                              (swap! page-state assoc :ingestion ingestion)
                              (await-ingestion page-state ingestion)))))
 
-(defn- email-input
+(defn- file-input
   "A button that opens the file chooser and reads the receipt in the chosen
-  email (an .eml file)"
+  file, an email (an .eml file) or a PDF"
   [page-state]
   [:<>
    ; the button is the input's label, which opens its file chooser, so the
    ; input itself, with its \"Choose File\" text, isn't shown
    [:label.btn.btn-secondary
-    {:for "receipt-email"
-     :title "Click here to choose an email (.eml file) holding a receipt."}
-    (icon-with-text :envelope "Email" :size :small)]
+    {:for "receipt-file"
+     :title "Click here to choose a PDF or an email (.eml file) holding a receipt."}
+    (icon-with-text :file-earmark-arrow-up "File" :size :small)]
    [:input.d-none
-    {:id "receipt-email"
+    {:id "receipt-file"
      :type :file
-     :accept ".eml,message/rfc822"
+     :accept ".eml,message/rfc822,.pdf,application/pdf"
      :on-change (fn [e]
                   (let [target (.-target e)]
                     (when-let [file (some-> target .-files (aget 0))]
@@ -477,7 +477,7 @@
                  {:for "receipt-image"
                   :title "Click here to take or choose a photo of a receipt."}
                  (icon-with-text :camera-fill "Scan" :size :small)]
-                [email-input page-state]
+                [file-input page-state]
                 [ingestion-settings/toggle ingestion-settings-id settings-draft]])
              ; reading starts as soon as an image is chosen, so the
              ; preview and buttons of the image input aren't needed
