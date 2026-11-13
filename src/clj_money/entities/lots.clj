@@ -2,6 +2,7 @@
   (:require [clojure.spec.alpha :as s]
             [java-time.api :as t]
             [dgknght.app-lib.validation :as v]
+            [clj-money.util :as util]
             [clj-money.entities :as entities]
             [clj-money.entities.commodities :as commodities]
             [clj-money.entities.propagation :as prop]))
@@ -28,7 +29,10 @@
 
 (defmethod prop/propagate :lot
   [[before after]]
-  (when-let [commodity (some-> (or after before)
-                               :lot/commodity
-                               (entities/find))]
-    [(commodities/with-shares-owned commodity)]))
+  ; Recalculate both commodities, as a lot may have moved from one to another
+  (->> [before after]
+       (keep :lot/commodity)
+       (map util/->entity-ref)
+       distinct
+       (mapv (comp commodities/with-shares-owned
+                   entities/find))))

@@ -14,7 +14,8 @@
                                             find-lot]]
             [clj-money.entity-helpers :refer [assert-invalid
                                              assert-created]]
-            [clj-money.test-helpers :refer [dbtest]]))
+            [clj-money.test-helpers :refer [dbtest
+                                            put-and-propagate]]))
 
 (def ^:private lot-context
   [(factory :user {:user/email "john@doe.com"})
@@ -108,6 +109,26 @@
       (is (comparable? #:lot{:shares-owned 70M}
                        (entities/find lot))
           "The retrieved value has the specified attributes"))))
+
+(def ^:private two-commodity-context
+  (conj existing-lot-context
+        #:commodity{:name "Microsoft"
+                    :entity "Personal"
+                    :symbol "MSFT"
+                    :exchange :nasdaq
+                    :type :stock}))
+
+(dbtest change-a-lot-commodity
+  (with-context two-commodity-context
+    (put-and-propagate (assoc (find-lot ["IRA" "AAPL"])
+                              :lot/commodity
+                              (util/->entity-ref (find-commodity "MSFT"))))
+    (is (comparable? #:commodity{:shares-owned 0M}
+                     (entities/find (find-commodity "AAPL")))
+        "The shares owned for the old commodity are reduced")
+    (is (comparable? #:commodity{:shares-owned 100M}
+                     (entities/find (find-commodity "MSFT")))
+        "The shares owned for the new commodity are increased")))
 
 (dbtest search-lots-by-account
   (with-context existing-lot-context
