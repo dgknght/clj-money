@@ -80,16 +80,26 @@
   (view-account account page-state)
   (start-reconciliation page-state))
 
-(defn- reconcile-account-by-id
-  "Starts the reconciliation of the account with the id, which comes from
-  the path, so it's a string. The cached accounts may still be loading,
-  e.g., when the page is loaded directly."
-  [id page-state]
+(defn- edit-account
+  [account page-state]
+  (swap! page-state assoc :selected account)
+  (set-focus "parent-id"))
+
+(def ^:private account-actions
+  {:view select-account
+   :edit edit-account
+   :reconcile reconcile-account})
+
+(defn- open-account-by-id
+  "Views, edits or reconciles the account with the id, which comes from the
+  path, so it's a string. The cached accounts may still be loading, e.g.,
+  when the page is loaded directly."
+  [id action page-state]
   (when-accounts-loaded
     (fn []
       (when-let [account (some #(when (= id (str (:id %))) %)
                                @accounts)]
-        (reconcile-account account page-state)))))
+        ((account-actions action) account page-state)))))
 
 (defn- unselect-account
   [page-state]
@@ -220,7 +230,7 @@
    :on-back #(unselect-account page-state)})
 
 (defn- index
-  [& [reconcile-account-id]]
+  [& [account-id action]]
   (let [page-state (r/atom {:expanded #{}
                             :filter {:hide-zero-balances? (any-non-zero-balances?)
                                      :show-hidden? false
@@ -251,12 +261,12 @@
         on-account-save (fn [_saved]
                           (fetch-accounts)
                           (close-account-form))]
-    ; the account's commodity is needed to reconcile it
+    ; the account's commodity is needed to view or reconcile it
     (load-commodities page-state
-                      :on-loaded (when reconcile-account-id
-                                   #(reconcile-account-by-id
-                                      reconcile-account-id
-                                      page-state)))
+                      :on-loaded (when account-id
+                                   #(open-account-by-id account-id
+                                                        action
+                                                        page-state)))
     (add-watch current-entity
                ::index
                (fn [_ _ previous current]
@@ -282,9 +292,7 @@
           :expanded expanded
           :bulk-edit bulk-edit
           :on-view #(select-account % page-state)
-          :on-edit (fn [account]
-                     (swap! page-state assoc :selected account)
-                     (set-focus "parent-id"))
+          :on-edit #(edit-account % page-state)
           :on-reconcile #(reconcile-account % page-state)
           :on-allocate #(swap! page-state assoc :allocation (new-allocation %))]
          [button {:html {:class "btn-primary"
@@ -341,10 +349,20 @@
 (secretary/defroute "/accounts" []
   (swap! app-state assoc :page #'index :active-nav :accounts))
 
-; A regex route, because secretary (1.2.3) fails to extract the params of a
-; route like "/accounts/:id/reconcile" (see the transactions page). The
-; bindings must be plain symbols: defroute also uses them as map keys.
+;; Regex routes, because secretary (1.2.3) fails to extract the params of a
+;; route like "/accounts/:id/reconcile" (see the transactions page). The
+;; bindings must be plain symbols: defroute also uses them as map keys.
 (secretary/defroute #"/accounts/([^/?#]+)/reconcile" [id]
   (swap! app-state assoc
-         :page #(vector index (js/decodeURIComponent id))
+         :page #(vector index (js/decodeURIComponent id) :reconcile)
+         :active-nav :accounts))
+
+(secretary/defroute #"/accounts/([^/?#]+)/edit" [id]
+  (swap! app-state assoc
+         :page #(vector index (js/decodeURIComponent id) :edit)
+         :active-nav :accounts))
+
+(secretary/defroute #"/accounts/([^/?#]+)" [id]
+  (swap! app-state assoc
+         :page #(vector index (js/decodeURIComponent id) :view)
          :active-nav :accounts))

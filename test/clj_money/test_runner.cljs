@@ -24,7 +24,8 @@
             [clj-money.api.trading-test]
             [clj-money.api.transfers-test]
             [clj-money.api.cli-logins-test]
-            [clj-money.return-path-test]))
+            [clj-money.return-path-test]
+            [clj-money.commands-test]))
 
 (defmethod t/report [:cljs.test/default :end-run-tests] [m]
   (set! (.-exitCode js/process) (if (t/successful? m) 0 1)))
@@ -55,4 +56,5 @@
     'clj-money.api.trading-test
     'clj-money.api.transfers-test
     'clj-money.api.cli-logins-test
-    'clj-money.return-path-test))
+    'clj-money.return-path-test
+    'clj-money.commands-test))

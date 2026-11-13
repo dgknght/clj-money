@@ -325,3 +325,37 @@ $bottom-nav-height: 3.5rem;
 .checkbox-beside-input .form-check {
   margin-bottom: 0 !important;
 }
+
+// The palette opened by pressing / (views/command_palette.cljs)
+.command-palette-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: bootstrap.$zindex-modal;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 15vh 1rem 0;
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+.command-palette {
+  width: 100%;
+  max-width: 40rem;
+  overflow: hidden;
+
+  .form-control {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .list-group {
+    border-top: var(--bs-border-width) solid var(--bs-border-color);
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+
+  .list-group-item {
+    cursor: pointer;
+  }
+}

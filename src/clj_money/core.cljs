@@ -39,6 +39,7 @@
             [clj-money.views.scheduled]
             [clj-money.views.dashboard :as dashboard]
             [clj-money.views.bottom-nav :refer [bottom-nav]]
+            [clj-money.views.command-palette :refer [command-palette]]
             [clj-money.cached-accounts :refer [watch-entity]]
             [clj-money.api]
             [clj-money.app :as app :refer [fetch-entities]]
@@ -296,7 +297,9 @@
         [render-toasts]
         [@page]]
        (when @bottom-nav?
-         [bottom-nav @items @active-nav])])))
+         [:<>
+          [bottom-nav @items @active-nav]
+          [command-palette @items]])])))
 
 (defn mount-root []
   (let [mounted? (r/cursor app-state [:mounted?])]

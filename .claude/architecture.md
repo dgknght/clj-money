@@ -106,6 +106,17 @@ into the caller's page state (issue #281).
   hides its hamburger, once there's a user and an entity; the page root gets
   `with-bottom-nav` so the content clears the bar. A route sets
   `:active-nav` to the id of its slot or nav item to highlight it
+- `views/command_palette.cljs` - pressing `/` outside a field opens a single
+  combobox (issue #309) that offers the matching UI actions; ↑/↓, Enter and
+  Esc drive it. `core/current-page` renders it alongside the bottom nav.
+  The commands and the matcher are in `commands.cljc` (pure, so tested on
+  both sides): `nav-commands` from the decorated nav items,
+  `account-commands` (view transactions, edit) from `state/accounts`, and
+  `search`, which ranks a prefix of the label or a keyword over a later
+  word's start over a substring, and always ends with a transaction search
+  for the input. Account commands go to `/accounts/:id` and
+  `/accounts/:id/edit`, regex routes like `/accounts/:id/reconcile` that
+  pass the accounts page `index` the id and an action
 
 ## Command-Line Sign In (`cli_logins.clj`)
 
