@@ -138,12 +138,29 @@
     (api/response {:reconciliation/balance (or (recs/previous-balance account :include-children? include-children?) 0M)})))
 
 (defn- find-and-auth
-  [{:keys [params authenticated]} action]
+  [{:keys [params authenticated]} action & {:as opts}]
   (some-> params
           (select-keys [:id])
           (+scope :reconciliation authenticated ::auth/manage)
-          entities/find-by
+          (entities/find-by opts)
           (authorize action authenticated)))
+
+(defn- covered-items
+  "The transaction items covered by the reconciliation, earliest first, with
+  the description and date of their transactions"
+  [recon]
+  (entities/select {:transaction-item/reconciliation (util/->entity-ref recon)}
+                   :select-also [:transaction/description
+                                 :transaction/transaction-date]
+                   :sort [[:transaction/transaction-date :asc]
+                          [:transaction-item/index :asc]]))
+
+(defn- show
+  [req]
+  (if-let [recon ; the items are read with their transactions' descriptions
+                   (find-and-auth req ::auth/show :omit-items? true)]
+    (api/response (assoc recon :reconciliation/items (covered-items recon)))
+    api/not-found))
 
 (defn- update
   [{:keys [authenticated] :as req}]
@@ -162,4 +179,5 @@
    ["accounts/:account-id/reconciliations" {:get {:handler index}
                                             :post {:handler create}}]
    ["accounts/:account-id/reconciliations/previous-balance" {:get {:handler previous-balance}}]
-   ["reconciliations/:id" {:patch {:handler update}}]])
+   ["reconciliations/:id" {:get {:handler show}
+                           :patch {:handler update}}]])

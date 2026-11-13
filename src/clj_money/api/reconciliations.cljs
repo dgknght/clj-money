@@ -1,5 +1,5 @@
 (ns clj-money.api.reconciliations
-  (:refer-clojure :exclude [update])
+  (:refer-clojure :exclude [get update])
   (:require [cljs.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.entities.schema :as schema]
@@ -39,6 +39,14 @@
                        :reconciliations))
            (prepare-criteria criteria)
            (add-error-handler opts "Unable to retrieve the reconciliations: %s")))
+
+(defn get
+  "Gets the reconciliation with the transaction items it covers, with their
+  transactions' descriptions and dates"
+  [{:keys [id]} & {:as opts}]
+  (api/get (api/path :reconciliations id)
+           {}
+           (add-error-handler opts "Unable to retrieve the reconciliation: %s")))
 
 (defn previous-balance
   [account & {:as opts :keys [include-children?]}]

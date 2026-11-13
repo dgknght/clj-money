@@ -34,6 +34,7 @@
             [clj-money.views.receipts]
             [clj-money.views.review]
             [clj-money.views.reconciliations.page]
+            [clj-money.views.reconciliations.show]
             [clj-money.views.reports]
             [clj-money.views.scheduled]
             [clj-money.views.dashboard :as dashboard]

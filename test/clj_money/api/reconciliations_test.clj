@@ -120,6 +120,41 @@
                                   :balance 400M
                                   :account {:id (:id (find-account "Checking"))}}])))
 
+(defn- get-reconciliation
+  [email]
+  (-> (request :get (path :api
+                          :reconciliations
+                          (:id (find-reconciliation ["Checking" (t/local-date 2015 1 4)])))
+               :user (find-user email))
+      app
+      parse-body))
+
+(deftest a-user-can-get-a-reconciliation-in-his-entity
+  (with-context recon-context
+    (let [{:as response :keys [parsed-body]} (get-reconciliation "john@doe.com")]
+      (is (http-success? response))
+      (is (comparable? #:reconciliation{:end-of-period (t/local-date 2015 1 4)
+                                        :balance 400M
+                                        :status :completed
+                                        :account {:id (:id (find-account "Checking"))}}
+                       parsed-body)
+          "The response contains the reconciliation")
+      (is (seq-of-maps-like? [{:transaction/description "Paycheck"
+                               :transaction/transaction-date (t/local-date 2015 1 1)
+                               :transaction-item/quantity 1000M}
+                              {:transaction/description "Landlord"
+                               :transaction/transaction-date (t/local-date 2015 1 2)
+                               :transaction-item/quantity 500M}
+                              {:transaction/description "Kroger"
+                               :transaction/transaction-date (t/local-date 2015 1 3)
+                               :transaction-item/quantity 100M}]
+                             (:reconciliation/items parsed-body))
+          "The response contains the items it covers, earliest first"))))
+
+(deftest a-user-cannot-get-a-reconciliation-in-anothers-entity
+  (with-context recon-context
+    (is (http-not-found? (get-reconciliation "jane@doe.com")))))
+
 (def ^:private two-recons-context
   (conj recon-context
         #:reconciliation{:account "Checking"

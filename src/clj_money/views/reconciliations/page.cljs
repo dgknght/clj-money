@@ -2,9 +2,9 @@
   "The Reconciliations page, /reconciliations. Lists the entity's
   reconciliations, latest first, a page at a time, optionally limited to
   one account (chosen in the filter, or given as ?account-id=) and to those
-  ending within a range of dates. An unfinished reconciliation
-  links to the accounts page, where it's completed. Uploading a statement
-  starts the reconciliation of the account it's for."
+  ending within a range of dates. Each links to its own page, and an
+  unfinished one also to the accounts page, where it's completed.
+  Uploading a statement starts the reconciliation of the account it's for."
   (:require [clojure.string :as string]
             [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
@@ -30,6 +30,7 @@
             [clj-money.api.commodities :as commodities]
             [clj-money.views.attachments :refer [view-image]]
             [clj-money.views.accounts.page :refer [reconcile-path]]
+            [clj-money.views.reconciliations.show :as show]
             [clj-money.views.statement-upload :refer [statement-input
                                                       reading-indicator]]))
 
@@ -159,23 +160,27 @@
     ^{:key (str "reconciliation-row-" (:id recon))}
     [:tr.align-middle
      [:td (format-date end-of-period)]
-     [:td (if completed?
-            caption
-            ; navigation to a link within the app is handled by accountant
-            [:a {:href (reconcile-path account)
-                 :title "Click here to continue this reconciliation."}
-             (or caption "Continue")])]
+     ; navigation to a link within the app is handled by accountant
+     [:td [:a {:href (show/path recon)
+               :title "Click here to view this reconciliation."}
+           (or caption "View")]]
      [:td.text-end (format-decimal balance {:fraction-digits 2})]
      [:td.d-none.d-sm-table-cell
       (if completed?
         [:span.badge.rounded-pill.text-bg-success "Completed"]
         [:span.badge.rounded-pill.text-bg-warning "In progress"])]
-     [:td.text-center
-      (when statement
-        [:button.btn.btn-sm.btn-outline-primary
-         {:title "Click here to view the statement in a new tab."
-          :on-click #(view-image statement)}
-         (icon :file-earmark-pdf :size :small)])]]))
+     [:td
+      [:div.d-flex.gap-1.justify-content-end
+       (when statement
+         [:button.btn.btn-sm.btn-outline-primary
+          {:title "Click here to view the statement in a new tab."
+           :on-click #(view-image statement)}
+          (icon :file-earmark-pdf :size :small)])
+       (when-not completed?
+         [:a.btn.btn-sm.btn-outline-secondary
+          {:href (reconcile-path account)
+           :title "Click here to continue this reconciliation."}
+          (icon :list-check :size :small)])]]]))
 
 (defn- load-more
   [page-state]
@@ -219,8 +224,8 @@
            [:th "Account"]
            [:th.text-end "Balance"]
            [:th.d-none.d-sm-table-cell "Status"]
-           ; on a small screen, the statement buttons need no heading
-           [:th.text-center [:span.d-none.d-sm-inline "Statement"]]]]
+           ; the statement and continue buttons need no heading
+           [:th [:span.visually-hidden "Actions"]]]]
          [:tbody
           (->> @recons
                (map #(reconciliation-row % (:commodities @page-state)))

@@ -88,9 +88,16 @@ into the caller's page state (issue #281).
   skipped. It asks for `omit-items=true`: a reconciliation is otherwise read
   with all of its transaction items (`after-read`, or SQL's `post-select`),
   which made each page hundreds of KB (issue #346). The `:omit-items?` select
-  option skips them. An unfinished one links to `/accounts/:id/reconcile`; a statement upload
+  option skips them. Each row links to `views/reconciliations/show.cljs`, and
+  an unfinished one also to `/accounts/:id/reconcile`; a statement upload
   sits under the table. It requires `accountant`, which can't be loaded by
   the client tests, so the accounts views link to it rather than navigate
+- `views/reconciliations/show.cljs` - `/reconciliations/:id` (issue #345,
+  a regex route; see the transactions page). Read-only: the account, end of
+  period, balance, status, statement and the items covered, with a Continue
+  button for an unfinished one. `GET /api/reconciliations/:id` reads the
+  reconciliation with `omit-items?` and then its items with
+  `:select-also` the transaction's description and date, earliest first
 - `views/bottom_nav.cljs` - the tab bar fixed to the bottom of screens below
   `lg` (issue #308): Add (the Receipts page), Accounts, Reports, Search, and
   More, a bottom sheet with the rest of the nav items. Badges show on the
