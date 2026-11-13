@@ -39,7 +39,8 @@
             [clj-money.views.scheduled]
             [clj-money.views.dashboard :as dashboard]
             [clj-money.views.bottom-nav :refer [bottom-nav]]
-            [clj-money.views.command-palette :refer [command-palette]]
+            [clj-money.views.command-palette :as palette :refer [command-palette]]
+            [clj-money.nav :refer [navbar-items]]
             [clj-money.cached-accounts :refer [watch-entity]]
             [clj-money.api]
             [clj-money.app :as app :refer [fetch-entities]]
@@ -65,23 +66,35 @@
   (accountant/navigate! "/login"))
 
 (def authenticated-nav-items
-  [{:id :search
-    :icon :search
-    :tool-tip "Click here to search transactions"}
-   {:id :commodities}
-   {:id :accounts}
+  [{:id :accounts}
    {:id :budgets}
-   {:id :receipts
-    :tool-tip "Click here to enter receipts"}
-   {:id :reconciliations
-    :tool-tip "Click here to reconcile an account or upload a statement"}
-   {:id :review
-    :tool-tip "Click here to review the transactions read from receipts and statements"}
    {:id :reports
     :tool-tip "Click here to view reports"}
+   {:id :search
+    :icon :search
+    :tool-tip "Click here to search transactions"}
+   {:id :receipts
+    :group :activity
+    :tool-tip "Click here to enter receipts"}
+   {:id :reconciliations
+    :group :activity
+    :tool-tip "Click here to reconcile an account or upload a statement"}
+   {:id :review
+    :group :activity
+    :tool-tip "Click here to review the transactions read from receipts and statements"}
    {:id :scheduled
+    :group :activity
     :tool-tip "Click here to manage schedule transactions"}
+   {:id :commodities
+    :group :setup}
+   {:id :imports
+    :group :setup
+    :path "/imports"}
+   {:id :entities
+    :group :setup
+    :path "/entities"}
    {:id :users
+    :group :setup
     :tool-tip "Click here to manage users"
     :required-role :admin}])
 
@@ -125,6 +138,16 @@
       :title (if dark? "Switch to light mode" "Switch to dark mode")}
      (icon (if dark? :sun :moon) :size :small)]))
 
+(defn- with-badge-label
+  "The dropdown toggle doesn't show a badge, so a dropdown with one gets
+  it in its label instead"
+  [{:keys [children badge badge-class label] :as item}]
+  (if (and (seq children) badge)
+    (assoc item :label [:<>
+                        label
+                        [:span.badge.ms-1 {:class badge-class} badge]])
+    item))
+
 (defn navbar
   "Renders the navbar. With :bottom-nav?, small screens get their nav items
   from the bottom tab bar, so the navbar keeps only the brand, the entity and
@@ -154,10 +177,20 @@
     (when (seq items)
       [:div#primary-nav.collapse.navbar-collapse
        [:ul.navbar-nav.me-auto.mb-2.mb-lg-0
-        (->> items
-             (map bs/nav-item)
+        (->> (navbar-items items)
+             (map (comp bs/nav-item with-badge-label))
              doall)]])
     [:div.d-flex.align-items-center
+     (when (some #(= :search (:id %)) items)
+       [:button.btn.btn-link.nav-link.p-0.ms-2
+        {:type :button
+         :class (when bottom-nav? "d-none d-lg-inline")
+         :title "Click here, or press /, to search"
+         :aria-label "Search"
+         :on-click (fn [e]
+                     (.preventDefault e)
+                     (palette/open))}
+        (icon :search)])
      (if authenticated?
        [:div.dropdown.ms-2
         [:button.btn.btn-link.p-0
@@ -275,11 +308,7 @@
            [:li.nav-item
             [:a.nav-link {:href "/entities"
                           :data-bs-dismiss :offcanvas}
-             "Manage Entities"]]
-           [:li.nav-item
-            [:a.nav-link {:href "/imports"
-                          :data-bs-dismiss :offcanvas}
-             "Manage Imports"]]]]]]])))
+             "Manage Entities"]]]]]]])))
 
 (defn- current-page []
   (let [page (r/cursor app-state [:page])

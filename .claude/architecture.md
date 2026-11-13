@@ -100,12 +100,22 @@ into the caller's page state (issue #281).
   `:select-also` the transaction's description and date, earliest first
 - `views/bottom_nav.cljs` - the tab bar fixed to the bottom of screens below
   `lg` (issue #308): Add (the Receipts page), Accounts, Reports, Search, and
-  More, a bottom sheet with the rest of the nav items. Badges show on the
+  More, a bottom sheet with the rest of the nav items under their group
+  headings. Badges show on the
   slots and in the sheet. The navbar's logo goes to the dashboard. `core/current-page`
   renders it with the same decorated nav items as the navbar, which then
   hides its hamburger, once there's a user and an entity; the page root gets
   `with-bottom-nav` so the content clears the bar. A route sets
   `:active-nav` to the id of its slot or nav item to highlight it
+- `nav.cljc` - organizes the nav items (issue #310). `core/authenticated-nav-items`
+  stays a flat list (the bottom nav and the command palette use it as is), but
+  an item can name a `:group` (`:activity` - receipts, reconciliations, review,
+  scheduled; `:setup` - commodities, imports, entities, users).
+  `navbar-items` turns each group into a dropdown, with its members' badges
+  totalled on the toggle, and drops Search, which the desktop navbar shows as
+  an icon that opens the command palette (`command-palette/open`); `sections`
+  gives the More sheet its headings. Entity switching stays in the offcanvas
+  opened by the entity name
 - `views/command_palette.cljs` - pressing `/` outside a field opens a single
   combobox (issue #309) that offers the matching UI actions; ↑/↓, Enter and
   Esc drive it. `core/current-page` renders it alongside the bottom nav.

@@ -15,7 +15,9 @@
 
 (defonce ^:private palette (r/atom {:open? false}))
 
-(defn- open! []
+(defn open
+  "Opens the palette, as pressing / does"
+  []
   (reset! palette {:open? true
                    :input ""
                    :active 0}))
@@ -36,7 +38,7 @@
              (not (typing? (.-target e)))
              (not (:open? @palette)))
     (.preventDefault e)
-    (open!)))
+    (open)))
 
 (defn- matches
   [items input]

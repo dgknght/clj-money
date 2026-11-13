@@ -403,4 +403,4 @@
            [import-activity page-state]])]])))
 
 (secretary/defroute "/imports" []
-  (swap! app-state assoc :page #'import-list))
+  (swap! app-state assoc :page #'import-list :active-nav :imports))

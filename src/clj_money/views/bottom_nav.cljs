@@ -3,9 +3,11 @@
   the navbar's collapsed menu (issue #308). It has a slot each for receipts
   (labeled Add, as entering a receipt is how a transaction is added on the
   go), accounts, reports and search, and a More slot that opens a sheet
-  holding the rest of the nav items. The navbar's logo goes to the
+  holding the rest of the nav items, under the headings of their groups,
+  as in the desktop navbar's dropdowns. The navbar's logo goes to the
   dashboard."
-  (:require [clj-money.icons :refer [icon]]))
+  (:require [clj-money.icons :refer [icon]]
+            [clj-money.nav :refer [sections]]))
 
 (def ^:private slots
   [{:id :receipts
@@ -94,8 +96,16 @@
                         :data-bs-dismiss :offcanvas
                         :aria-label "Close"}]]
    [:div.offcanvas-body
-    [:div.list-group
-     (doall (map more-link more-items))]]])
+    (doall
+      (map-indexed
+        (fn [i [heading items]]
+          ^{:key (str "more-nav-section-" i)}
+          [:<>
+           (when heading
+             [:h6.text-body-secondary.mt-3.mb-2 heading])
+           [:div.list-group
+            (doall (map more-link items))]])
+        (sections more-items)))]])
 
 (defn bottom-nav
   "Renders the bottom tab bar for the nav items (as decorated for the

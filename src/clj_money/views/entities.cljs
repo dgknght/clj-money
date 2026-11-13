@@ -279,4 +279,4 @@
            [entity-form page-state]])]])))
 
 (secretary/defroute "/entities" []
-  (swap! app-state assoc :page #'index))
+  (swap! app-state assoc :page #'index :active-nav :entities))
