@@ -427,7 +427,9 @@ A photo of a receipt is read by a vision model and turned into a transaction.
   `scale/enlarge`), and gives `{:text ...}`, read
   much faster by a text model (`qwen3:8b` by default); a PDF's own text is
   used when it has some. `ocr` returns nil when no text is read, Tesseract
-  times out, or the total the model read isn't among the amounts in the text (e.g., a
+  times out, the slip's `= Total:` line has no amount OCR could read (a
+  handwritten total, issue #220; the model isn't called), or the total the
+  model read isn't among the amounts in the text (e.g., a
   handwritten total OCR misread), so configure it as the first of the
   `:alternatives` of a `::logic/or` reader (`ingestion/logic.clj`, issue
   #222), followed by `scale` → `base64`, so the slow vision model only reads

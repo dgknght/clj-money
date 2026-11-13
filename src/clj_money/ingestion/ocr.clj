@@ -2,8 +2,9 @@
   "Reads the text of receipts with Tesseract OCR, so that a model is given
   the text in place of the image, which is much faster to read. OCR can't
   read everything a model reading the image can, like a handwritten tip, so
-  nil is returned for a receipt whose text can't be read, or that the model
-  can't find the total in, so that another reader can read the image instead
+  nil is returned for a receipt whose text can't be read, whose total is
+  handwritten, or that the model can't find the total in, so that another
+  reader can read the image instead
   (see clj-money.ingestion.logic)."
   (:require [clojure.string :as str]
             [clojure.tools.logging :as log]
@@ -88,11 +89,22 @@
   (boolean (and total
                 (some #(== total %) (amounts text)))))
 
+(defn- handwritten-total?
+  "Returns true if the text has the \"= Total:\" line of a slip on which the
+  total, after the tip, is written by hand, with no amount OCR could read.
+  The model, not given the total, would otherwise read the amount printed
+  before the tip as the total."
+  [text]
+  (boolean
+    (some #(and (re-find #"^\s*=\s*\p{L}" %)
+                (empty? (amounts %)))
+          (str/split-lines text))))
+
 (defn- read-text
   "Reads the receipt with the reader, given its text. Returns nil if there's
-  no text, Tesseract doesn't finish in time, or the total read isn't in it,
-  so that a reader that can read what OCR can't (see
-  clj-money.ingestion.logic) can read it instead."
+  no text, Tesseract doesn't finish in time, the total is handwritten, or
+  the total read isn't in the text, so that a reader that can read what OCR
+  can't (see clj-money.ingestion.logic) can read it instead."
   [reader content entity opts read-opts]
   (let [text (try
                (text content opts)
@@ -108,6 +120,9 @@
       (str/blank? text)
       (log/info "No text could be read from the receipt.")
 
+      (handwritten-total? text)
+      (log/info "The total of the receipt is handwritten.")
+
       :else
       (let [result (ing/read-receipt reader {:text text} entity read-opts)]
         (if (total-in-text? result text)
@@ -119,8 +134,8 @@
   "Decorates a receipt reader that can read text, so that it's given
   {:text \"...\"}, the text of the receipt, in place of the image. Returns
   nil when no text can be read from the image, Tesseract doesn't finish
-  within :timeout-ms (for each image), or the total read isn't in the
-  text. A receipt's contents, already read (e.g., the text of an email,
+  within :timeout-ms (for each image), the total is handwritten, or the
+  total read isn't in the text. A receipt's contents, already read (e.g., the text of an email,
   which OCR didn't misread), are passed on as they are."
   [reader opts]
   (reify

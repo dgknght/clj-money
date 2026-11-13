@@ -142,7 +142,7 @@
     (is (= {:total 1234.5M} result))))
 
 (deftest a-total-not-in-the-text-isnt-returned
-  (let [{:keys [result inner]} (read-text-with-result "Amount: $28.67\n= Total 34 OF\n"
+  (let [{:keys [result inner]} (read-text-with-result "Amount: $28.67\nTotal 34 OF\n"
                                                  {:total 6.70M})]
     (is (nil? result)
         "Nothing is returned")
@@ -177,3 +177,23 @@
         "The result is returned without looking for the total in the text")
     (is (empty? @calls)
         "Tesseract isn't run")))
+
+(deftest a-receipt-with-a-handwritten-total-isnt-read
+  (let [{:keys [result inner]} (read-text-with-result
+                                 "Total $29.78\nAmount 29.78\n+ Tip:\n= Total: dh Yr at 6)\n"
+                                 {:total 29.78M})]
+    (is (nil? result)
+        "Nothing is returned, so that another reader can read the image")
+    (is (empty? (:read-receipt inner))
+        "The inner reader isn't given the text")))
+
+(deftest a-receipt-with-a-total-ocr-read-on-the-total-line-is-read
+  (let [{:keys [result]} (read-text-with-result
+                           "Amount 29.78\n+ Tip: 6.00\n= Total: 35.78\n"
+                           {:total 35.78M})]
+    (is (= {:total 35.78M} result))))
+
+(deftest a-line-of-just-an-equals-sign-isnt-a-handwritten-total
+  (let [{:keys [result]} (read-text-with-result "Total 6.68\n=\n"
+                                                {:total 6.68M})]
+    (is (= {:total 6.68M} result))))
