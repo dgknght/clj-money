@@ -10,9 +10,9 @@
   {:clj-money.images/strategy :clj-money.images/s3
    :bucket "test-bucket"
    :host "localhost"
-   :port 9000
-   :access-key "minioadmin"
-   :secret-key "minioadmin"})
+   :port 3900
+   :access-key "test-access-key"
+   :secret-key "test-secret-key"})
 
 ; ---------------------------------------------------------------
 ; Behavioral contract (stateful in-memory S3 mock)

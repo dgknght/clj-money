@@ -5,7 +5,7 @@ volumes:
   maven-data:
   redis-data-8:
   init-markers:
-  minio-data:
+  garage-data:
   ollama-data:
 services:
 
@@ -69,40 +69,41 @@ services:
         source: maven-data
         target: /root/.m2
 
-  # MinIO (S3-compatible image storage)
-  #-------------------------------------
+  # Garage (S3-compatible image storage)
+  #--------------------------------------
 
-  minio:
-    image: docker.io/minio/minio:latest
-    pull_policy: always
-    command: server /data --console-address ":9001"
+  garage:
+    image: clj-money-garage
+    build:
+      target: garage
+    entrypoint: /etc/garage/entrypoint.sh
     restart: on-failure
     ports:
-      - 9000:9000
-      - 9001:9001
-    volumes:
-      - minio-data:/data
+      - 3900:3900 # S3 API
+      - 3903:3903 # admin API
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      GARAGE_CONFIG_FILE: /etc/garage/garage.toml
+      GARAGE_RPC_SECRET: c26bff145f1ecb3516851cd3d1a79429859b06a99a669f60527bf3a6818e7576
+      GARAGE_BUCKET: clj-money-images
+      GARAGE_ACCESS_KEY: GK851a067c3306541969e2105c
+      GARAGE_SECRET_KEY: da6051e8938502371920d0574d911e7de9ab497e28d95d878d8fa50dfee3fb27
+    volumes:
+      - type: bind
+        source: ./scripts/garage
+        target: /etc/garage
+        read_only: true
+        bind:
+          selinux: z
+      - type: volume
+        source: garage-data
+        target: /var/lib/garage
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      # The entrypoint leaves the marker once the bucket and key exist
+      test: ["CMD-SHELL", "test -e /tmp/garage-ready && garage status"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
-
-  minio-init:
-    image: docker.io/minio/mc:latest
-    pull_policy: always
-    depends_on:
-      minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin &&
-      /usr/bin/mc mb --ignore-existing myminio/clj-money-images &&
-      exit 0"
 
   # Datomic
   #--------

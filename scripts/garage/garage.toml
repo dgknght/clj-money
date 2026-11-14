@@ -1,0 +1,18 @@
+# Local development counterpart of the production Garage config (see the
+# garage role in the homelab repo). rpc_secret comes from GARAGE_RPC_SECRET.
+metadata_dir = "/var/lib/garage/meta"
+data_dir = "/var/lib/garage/data"
+db_engine = "lmdb"
+
+replication_factor = 1
+
+rpc_bind_addr = "[::]:3901"
+rpc_public_addr = "127.0.0.1:3901"
+
+[s3_api]
+# The S3 client in clj-money.images.s3 signs requests for us-east-1
+s3_region = "us-east-1"
+api_bind_addr = "[::]:3900"
+
+[admin]
+api_bind_addr = "[::]:3903"

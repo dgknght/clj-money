@@ -1,3 +1,11 @@
+# Garage (S3-compatible image storage) for local development. Its image has no
+# shell, which bootstrapping the bucket and key needs (see
+# scripts/garage/entrypoint.sh), so put its binary on busybox
+FROM docker.io/dxflrs/garage:v2.5.0 AS garage-bin
+
+FROM docker.io/busybox:1.37 AS garage
+COPY --from=garage-bin /garage /usr/local/bin/garage
+
 FROM docker.io/clojure:temurin-25-lein-bookworm-slim AS psql
 RUN apt-get update && \
     apt-get install -y postgresql-client
