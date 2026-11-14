@@ -201,8 +201,9 @@ services:
     image: clj-money-util
     build:
       target: util
-    command: sh -c "while [ ! -e /init-markers/datomic-sql-init-complete ]; do echo 'waiting for datomic sql init...'; sleep 5s; done && lein with-profile util datomic-schema && touch /init-markers/datomic-schema-complete"
-    restart: on-failure
+    # Retries a limited number of times itself, then gives up and leaves a
+    # marker that datomic-console reports, so there's no restart policy
+    command: ./scripts/datomic/apply-schema.sh
     volumes:
       - type: bind
         source: ./env/docker
@@ -229,7 +230,7 @@ services:
     environment:
       SQL_APP_USER: ${SQL_APP_USER}
       SQL_APP_PASSWORD: ${SQL_APP_PASSWORD}
-    command: sh -c "while [ ! -e /init-markers/datomic-schema-complete ]; do echo 'waiting for datomic schema...'; sleep 5s; done && ./bin/console -p '8080' sql 'datomic:sql://?jdbc:postgresql://sql:5432/datomic?user=${SQL_APP_USER}&password=${SQL_APP_PASSWORD}'"
+    command: sh -c "while [ ! -e /init-markers/datomic-schema-complete ]; do if [ -e /init-markers/datomic-schema-failed ]; then echo 'waiting for datomic schema, which failed to apply (see the datomic-schema logs)...'; else echo 'waiting for datomic schema...'; fi; sleep 5s; done && ./bin/console -p '8080' sql 'datomic:sql://?jdbc:postgresql://sql:5432/datomic?user=${SQL_APP_USER}&password=${SQL_APP_PASSWORD}'"
     volumes:
       - type: volume
         source: init-markers

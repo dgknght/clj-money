@@ -119,3 +119,17 @@ After a dependency update (e.g. carmine 3.6.0, which needs encore 3.172.1),
 version. The old encore is in stale AOT-compiled classes under
 `target/classes/taoensso`, which take precedence over the jar. Delete
 `target/classes` and rerun; `project.clj` doesn't need to change.
+
+## Containers
+
+### `datomic-console` keeps printing `waiting for datomic schema, which failed to apply`
+
+The `datomic-schema` service (`scripts/datomic/apply-schema.sh`) tried to
+apply the schema 5 times, gave up, and left a `datomic-schema-failed`
+marker in the `init-markers` volume. `datomic-console` keeps waiting so
+that it starts once the schema is applied, and `datomic-peer-server`
+doesn't start at all. Find the cause at the end of
+`podman logs clj-money_datomic-schema_1`, fix it, then run the service
+again with `podman-compose --profile datomic-peer up -d datomic-schema`
+(add `--build` if the fix is in code, since the script runs from the
+`clj-money-util` image).
