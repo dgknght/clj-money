@@ -43,10 +43,15 @@
                 (map (comp apply-tags
                            find-account))
                 (multi-save {:process (fn [a ch]
+                                        ; :on-error handles the exception in the
+                                        ; response channel, and must return it
+                                        ; to have it passed on to :on-failure.
+                                        ; Errors are reported together below.
                                         (accounts/save
                                           a
                                           :on-success (put+close ch)
-                                          :on-error (put+close ch)))}))]
+                                          :on-error identity
+                                          :on-failure (put+close ch)))}))]
     (a/go
       (let [{:keys [succeeded errors results]} (a/<! ch)]
         (-busy)
@@ -62,7 +67,7 @@
                       (str "Updated "
                            succeeded
                            " account(s)."))
-        (when (seq? errors)
+        (when (seq errors)
           (notify/warnf "Some errors were encountered: %s"
                         (string/join "; " errors)))))))
 
