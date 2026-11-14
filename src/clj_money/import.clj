@@ -2,6 +2,7 @@
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [clojure.java.io :as io]
+            [clojure.string :as string]
             [clojure.core.async :as a]
             [clojure.set :refer [union]]
             [java-time.api :as t]
@@ -332,11 +333,30 @@
        second
        keyword))
 
-(defn- image-content
-  [{:image/keys [uuid]}]
-  (-> (images/get uuid)
+(defn- ->input-stream
+  [content]
+  (-> content
       byte-array
       io/input-stream))
+
+(defn- abort-for-missing-content
+  "Ends an import whose source files can't be found in image storage,
+  reporting it the way any other fatal error is reported"
+  [images {:keys [out-chan entity wait-chan]}]
+  (log/errorf "[import] content not found for images %s"
+              (mapv (juxt :id :image/uuid) images))
+  (let [notification {:import/record-type :notification
+                      :notification/severity :fatal
+                      :notification/message
+                      (format "The source file is no longer available: %s"
+                              (string/join ", " (map :image/original-filename images)))}]
+    (a/go
+      (when out-chan
+        (a/>! out-chan notification)
+        (a/>! out-chan {:import/record-type :termination-signal}))
+      (a/>! wait-chan {:notifications [notification]
+                       :entity entity})
+      (a/close! wait-chan))))
 
 (defmulti import-record*
   (fn [_ record]
@@ -786,6 +806,10 @@
         images (->> (:import/images import-spec)
                     (map :id)
                     entities/find-many)
+        contents (mapv (comp images/get :image/uuid) images)
+        missing (->> (map vector images contents)
+                     (remove second)
+                     (map first))
         source-type (get-source-type (first images))
         entity ((some-fn entities/find-by entities/put)
                 {:entity/user user
@@ -793,58 +817,62 @@
         wait-chan (a/promise-chan)]
     (log/infof "[import] Import process starting for \"%s\"."
                (:import/entity-name import-spec))
-    (a/go
-      (try
-        (let [result (->> images
-                          (map image-content)
-                          (read-source source-type)
-                          (a/transduce
-                            (comp (filter-import)
-                                  import-record
-                                  (forward out-chan))
-                            (completing
-                              (fn [ctx {:import/keys [record-type]
-                                        :notification/keys [severity]}]
-                                (if (and (= :notification record-type)
-                                         (= :fatal severity))
-                                  (reduced (assoc ctx ::abend? true))
-                                  ctx)))
-                            {:import import-spec
-                             :account-ids {}
-                             :account-children {}
-                             :account-parents {}
-                             :notifications []
-                             :sorted-trxs (sorted-map)
-                             :entity entity})
-                          a/<!!)]
-          (when (seq (:accounts result))
-            (entities/put-many (vals (:accounts result))))
-          (when-not (::abend? result)
-            (prop/propagate-all (:entity result) {:progress-chan out-chan})
-            (log/debugf "[import] data imported, start reconciliations for %s"
-                        (:import/entity-name import-spec))
-            (let [t (a/timeout reconciliation-timeout-ms)
-                  [_ c] (a/alts!! [(process-reconciliations result
-                                                            out-chan)
-                                   t]
-                                  :priority true)]
-              (if (= c t)
-                (do
-                  (log/errorf "[import] timed out waiting for reconciliations for %s"
-                              (:import/entity-name import-spec))
-                  (when out-chan
-                    (a/>! out-chan {:import/record-type :notification
-                                    :notification/severity :fatal
-                                    :notification/message "Timed out waiting for reconciliations to finish."})))
-                (log/debugf "[import] finished processing reconciliations for %s"
-                            (:import/entity-name import-spec)))))
-          (when out-chan
-            (a/>! out-chan {:import/record-type :termination-signal}))
-          (a/>! wait-chan (select-keys result [:notifications :entity])))
-        (finally
-          (log/infof "[import] Import process has ended for \"%s\"."
-                     (:import/entity-name import-spec))
-          (a/close! wait-chan))))
+    (if (seq missing)
+      (abort-for-missing-content missing {:out-chan out-chan
+                                          :entity entity
+                                          :wait-chan wait-chan})
+      (a/go
+        (try
+          (let [result (->> contents
+                            (map ->input-stream)
+                            (read-source source-type)
+                            (a/transduce
+                              (comp (filter-import)
+                                    import-record
+                                    (forward out-chan))
+                              (completing
+                                (fn [ctx {:import/keys [record-type]
+                                          :notification/keys [severity]}]
+                                  (if (and (= :notification record-type)
+                                           (= :fatal severity))
+                                    (reduced (assoc ctx ::abend? true))
+                                    ctx)))
+                              {:import import-spec
+                               :account-ids {}
+                               :account-children {}
+                               :account-parents {}
+                               :notifications []
+                               :sorted-trxs (sorted-map)
+                               :entity entity})
+                            a/<!!)]
+            (when (seq (:accounts result))
+              (entities/put-many (vals (:accounts result))))
+            (when-not (::abend? result)
+              (prop/propagate-all (:entity result) {:progress-chan out-chan})
+              (log/debugf "[import] data imported, start reconciliations for %s"
+                          (:import/entity-name import-spec))
+              (let [t (a/timeout reconciliation-timeout-ms)
+                    [_ c] (a/alts!! [(process-reconciliations result
+                                                              out-chan)
+                                     t]
+                                    :priority true)]
+                (if (= c t)
+                  (do
+                    (log/errorf "[import] timed out waiting for reconciliations for %s"
+                                (:import/entity-name import-spec))
+                    (when out-chan
+                      (a/>! out-chan {:import/record-type :notification
+                                      :notification/severity :fatal
+                                      :notification/message "Timed out waiting for reconciliations to finish."})))
+                  (log/debugf "[import] finished processing reconciliations for %s"
+                              (:import/entity-name import-spec)))))
+            (when out-chan
+              (a/>! out-chan {:import/record-type :termination-signal}))
+            (a/>! wait-chan (select-keys result [:notifications :entity])))
+          (finally
+            (log/infof "[import] Import process has ended for \"%s\"."
+                       (:import/entity-name import-spec))
+            (a/close! wait-chan)))))
     {:entity entity
      :wait-chan wait-chan}))
 

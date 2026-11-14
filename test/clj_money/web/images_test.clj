@@ -9,6 +9,7 @@
                                             find-image
                                             find-user]]
             [clj-money.config :refer [env]]
+            [clj-money.images :as images]
             [clj-money.services :as services]
             [clj-money.web.auth :as auth]
             [clj-money.web.test-handler :refer [app]]))
@@ -76,6 +77,13 @@
 
 (deftest a-user-can-view-an-image-in-his-entity
   (assert-successful-get (get-image "john@doe.com")))
+
+(deftest a-user-gets-not-found-when-the-image-content-is-missing
+  (let [response (with-redefs [images/get (constantly nil)]
+                   (get-image "john@doe.com"))]
+    (assert-not-found response)
+    (is (= "image content not found" (:body response))
+        "The response distinguishes missing content from a missing image")))
 
 (deftest a-user-cannot-view-an-image-in-anothers-entity
   (assert-not-found (get-image "jane@doe.com")))

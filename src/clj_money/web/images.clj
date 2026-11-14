@@ -1,6 +1,7 @@
 (ns clj-money.web.images
   (:require [clojure.java.io :as io]
             [clojure.pprint :refer [pprint]]
+            [clojure.tools.logging :as log]
             [ring.util.response :as res]
             [clj-money.authorization :as authorization]
             [clj-money.images :as images]
@@ -19,25 +20,37 @@
     (when (authorization/allowed? image ::authorization/show authenticated)
       image)))
 
-(defn- ->response
-  [{:image/keys [uuid content-type]}]
-  (-> (images/get uuid)
-      io/input-stream
-      res/response
-      (res/content-type content-type)))
-
-(def ^:private not-found
-  (-> "not found"
+(defn- text-not-found
+  [msg]
+  (-> msg
       res/response
       (res/status 404)
       (res/content-type "text/plain")))
 
+(def ^:private not-found
+  (text-not-found "not found"))
+
+; The image record exists, but its content can't be found in image
+; storage (e.g., the storage was changed without copying its contents)
+(def ^:private content-not-found
+  (text-not-found "image content not found"))
+
+(defn- ->response
+  [{:image/keys [uuid content-type] :keys [id]}]
+  (if-let [content (images/get uuid)]
+    (-> content
+        io/input-stream
+        res/response
+        (res/content-type content-type))
+    (do
+      (log/warnf "[images] content not found for image %s with uuid %s" id uuid)
+      content-not-found)))
+
 (defn show
   [req]
-  (or (some-> req
-              find-image
-              ->response)
-      not-found))
+  (if-let [image (find-image req)]
+    (->response image)
+    not-found))
 
 (def routes
   ["images/:id" {:get {:handler show}}])

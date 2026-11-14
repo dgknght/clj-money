@@ -234,6 +234,17 @@
                        retrieved)
           "The error is recorded on the receipt-ingestion"))))
 
+(deftest a-missing-image-is-recorded
+  (with-context
+    (let [[response retrieved] (with-redefs [images/get (constantly nil)]
+                                 (create-ingestion "john@doe.com"))]
+      (is (http-created? response))
+      (is (comparable? #:receipt-ingestion{:status :failed
+                                           :failure-reason :image-missing
+                                           :error "The receipt image is no longer available."}
+                       retrieved)
+          "The read fails, recording that the image is missing"))))
+
 (deftest a-user-cannot-create-a-receipt-ingestion-in-anothers-entity
   (with-context
     (let [[response] (create-ingestion "jane@doe.com")]

@@ -10,6 +10,7 @@
             [clj-money.progress :as prog]
             [clj-money.entities.ref]
             [clj-money.db.ref]
+            [clj-money.images :as images]
             [clj-money.images.sql]
             [clj-money.util :as util]
             [clj-money.io :refer [read-bytes]]
@@ -271,6 +272,24 @@
                                   {:import/record-type :termination-signal}]
                                  records)
               "The error notification is sent to the out-chan"))))))
+
+(deftest halt-when-the-source-content-is-missing
+  (with-context gnucash-context
+    (with-redefs [images/get (constantly nil)]
+      (let [out-chan (a/chan 10)
+            {:keys [wait-chan]} (import-data (find-import "Personal")
+                                             :out-chan out-chan)
+            records (drain-chan out-chan #(= :termination-signal (:import/record-type %)))
+            [result] (a/alts!! [wait-chan (a/timeout 5000)])
+            expected {:notification/severity :fatal
+                      :notification/message "The source file is no longer available: sample.gnucash"}]
+        (is (seq-of-maps-like? [expected]
+                               (:notifications result))
+            "The error notification is included in the final result")
+        (is (seq-of-maps-like? [expected
+                                {:import/record-type :termination-signal}]
+                               records)
+            "The error notification is sent to the out-chan")))))
 
 (defn- finalizing-reconciliation?
   [x]

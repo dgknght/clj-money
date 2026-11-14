@@ -41,16 +41,26 @@
                                (swap! page-state remove-attachment attachment)
                                (when on-delete (on-delete attachment))))))
 
+(defn- notify-fetch-failure
+  [{:keys [status]}]
+  (if (= 404 status)
+    (notify/danger "This image is no longer available.")
+    (notify/dangerf "Unable to retrieve the image (status %s)." status)))
+
 (defn fetch-image
   "Retrieves the content of the image (or PDF), and passes it, as a
-  js/Blob, to f"
+  js/Blob, to f. If the image can't be retrieved, the user is notified
+  and f is not called."
   [{:keys [id]} f]
   (a/go
-    (let [{:keys [body]} (a/<! (http/get (path :app :images id)
-                              {:with-credentials? false
-                               :response-type :blob
-                               :headers {"Authorization" (str "Bearer " @auth-token)}}))]
-      (f body))))
+    (let [{:keys [success body] :as res}
+          (a/<! (http/get (path :app :images id)
+                          {:with-credentials? false
+                           :response-type :blob
+                           :headers {"Authorization" (str "Bearer " @auth-token)}}))]
+      (if success
+        (f body)
+        (notify-fetch-failure res)))))
 
 (defn view-image
   "Opens the image (or PDF) in a new tab"

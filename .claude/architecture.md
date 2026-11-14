@@ -494,9 +494,10 @@ A photo of a receipt is read by a vision model and turned into a transaction.
 Reading a receipt is slow, so it runs in the background, tracked by a
 `receipt-ingestion` entity (`:status` is `:pending`, `:processing`,
 `:complete`, `:failed` or `:rejected`). When the model's `:is-receipt` is
-false, the read fails with `:failure-reason :not-a-receipt` (nil for any
-other failure) and no transaction is created; the client shows that as
-information rather than an error.
+false, the read fails with `:failure-reason :not-a-receipt` and no
+transaction is created; the client shows that as information rather than an
+error. When the image's content isn't in image storage, it fails with
+`:failure-reason :image-missing`. Any other failure has no reason.
 - `api/receipt_ingestions.clj` - `POST /api/entities/:entity-id/receipt-ingestions`
   takes the image (multipart, `image`), creates the receipt-ingestion and
   reads the receipt in a `future` with the `:receipt-reader` component. When

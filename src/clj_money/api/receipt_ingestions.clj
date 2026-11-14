@@ -68,32 +68,44 @@
         (assoc :receipt-ingestion/status :complete)
         entities/put)))
 
+(defn- read-content
+  [ingestion reader content user entity]
+  (let [account-opts (rcpts/account-options entity)
+        receipt (ing/read-receipt reader
+                                  content
+                                  entity
+                                  {:account-options account-opts})]
+    ; an uploaded email may turn out not to be a receipt
+    (if (false? (:is-receipt receipt))
+      (entities/put (assoc ingestion
+                           :receipt-ingestion/status :failed
+                           :receipt-ingestion/failure-reason :not-a-receipt
+                           :receipt-ingestion/error "That isn't a receipt."
+                           :receipt-ingestion/receipt receipt))
+      (create-transaction ingestion
+                          receipt
+                          entity
+                          account-opts
+                          {:content content
+                           :user user}))))
+
 (defn- read-receipt
   [ingestion reader]
   (let [{:receipt-ingestion/keys [entity image] :as ingestion}
         (entities/put (assoc ingestion :receipt-ingestion/status :processing))
         entity (entities/find entity)]
     (try
-      (let [account-opts (rcpts/account-options entity)
-            {:image/keys [uuid user]} (entities/find image)
-            content (images/get uuid)
-            receipt (ing/read-receipt reader
-                                      content
-                                      entity
-                                      {:account-options account-opts})]
-        ; an uploaded email may turn out not to be a receipt
-        (if (false? (:is-receipt receipt))
-          (entities/put (assoc ingestion
-                               :receipt-ingestion/status :failed
-                               :receipt-ingestion/failure-reason :not-a-receipt
-                               :receipt-ingestion/error "That isn't a receipt."
-                               :receipt-ingestion/receipt receipt))
-          (create-transaction ingestion
-                              receipt
-                              entity
-                              account-opts
-                              {:content content
-                               :user user})))
+      (let [{:image/keys [uuid user]} (entities/find image)]
+        (if-let [content (images/get uuid)]
+          (read-content ingestion reader content user entity)
+          (do
+            (log/errorf "[receipt-ingestion] content not found for image %s with uuid %s"
+                        (:id image)
+                        uuid)
+            (entities/put (assoc ingestion
+                                 :receipt-ingestion/status :failed
+                                 :receipt-ingestion/failure-reason :image-missing
+                                 :receipt-ingestion/error "The receipt image is no longer available.")))))
       (catch Exception e
         (log/errorf e "[receipt-ingestion] unable to read receipt %s" (:id ingestion))
         (entities/put (assoc ingestion
