@@ -2,3 +2,8 @@
 
 # A truncated example JWT in the CLI authentication docs
 086976270366388efa828e3181119d1eeb76e2f5:docs/features/cli-authentication-client.md:generic-api-key:79
+
+# Local-dev Garage (S3 stand-in) RPC secret and access/secret keys in docker-compose.yaml
+ef3c9246d357f1ce1d1cc0a73716555ad339611f:docker-compose.yaml:generic-api-key:86
+ef3c9246d357f1ce1d1cc0a73716555ad339611f:docker-compose.yaml:generic-api-key:88
+ef3c9246d357f1ce1d1cc0a73716555ad339611f:docker-compose.yaml:generic-api-key:89
