@@ -3,7 +3,7 @@
 # scripts/garage/entrypoint.sh), so put its binary on busybox
 FROM docker.io/dxflrs/garage:v2.5.0 AS garage-bin
 
-FROM docker.io/busybox:1.37 AS garage
+FROM docker.io/busybox:1.38 AS garage
 COPY --from=garage-bin /garage /usr/local/bin/garage
 
 FROM docker.io/clojure:temurin-25-lein-bookworm-slim AS psql
