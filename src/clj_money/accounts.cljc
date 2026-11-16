@@ -287,6 +287,23 @@
                     {:fraction-digits 2}
                     {:fraction-digits 4})))
 
+(defn- estimate-gain
+  "Estimates the gain (or loss, if negative) realized by selling the given
+  value of shares from the given lots at the given price, taking the lots
+  in purchase-date order, oldest first for :fifo or newest first for :lifo."
+  [sale-value price lots inventory-method]
+  (let [sorted (cond-> (sort-by :lot/purchase-date t/before? lots)
+                 (= :lifo inventory-method) reverse)]
+    (loop [to-sell (d// sale-value price)
+           [{:lot/keys [shares-owned purchase-price]} & remaining] sorted
+           gain 0M]
+      (if (and shares-owned (d/< 0M to-sell))
+        (let [shares (if (d/< to-sell shares-owned) to-sell shares-owned)]
+          (recur (d/- to-sell shares)
+                 remaining
+                 (d/+ gain (d/* shares (d/- price purchase-price)))))
+        (d/round gain 2)))))
+
 (defn- ->allocation-rec
   [{:keys [target-percentage account] :as m} working-total]
   (let [percentage (d// target-percentage 100M)
@@ -309,13 +326,43 @@
            :target-value target-value
            :adj-value adj-value)))
 
+(defn- +est-gain
+  "Adds the estimated gain or loss of the sale to an allocation record that
+  sells shares"
+  [lots-by-commodity inventory-method]
+  (fn [{:keys [account adj-value current-value] :as rec}]
+    (let [lots (seq (get lots-by-commodity
+                         (get-in account [:account/commodity :id])))
+          quantity (:account/quantity account 0M)]
+      (if (and lots
+               (d/< adj-value 0M)
+               (d/< 0M quantity))
+        (assoc rec :est-gain (estimate-gain (d/abs adj-value)
+                                            (d// current-value quantity)
+                                            lots
+                                            inventory-method))
+        rec))))
+
 (defn allocate
+  "Returns the adjustments needed to bring the children of the given trading
+  account to its target allocations.
+
+  Options:
+    :cash             - the cash to hold back from the allocation
+    :withdrawal       - the cash to be withdrawn from the account
+    :lots             - the account's lots, used to estimate the gain or loss
+                        (:est-gain) of each sale
+    :inventory-method - :fifo (default) or :lifo, the order in which lots
+                        are sold"
   [{:account/keys [allocations total-value value]}
    find-account-fn
-   & {:keys [cash withdrawal]}]
+   & {:keys [cash withdrawal lots inventory-method]}]
   (let [cash-withheld (or cash value)
         withdrawal (or withdrawal (d/d 0))
         working-total (d/- total-value (d/+ cash-withheld withdrawal))
+        lots-by-commodity (group-by (comp :id :lot/commodity)
+                                    (filter #(d/< 0M (:lot/shares-owned % 0M))
+                                            lots))
         result (mapv (comp #(->allocation-rec % working-total)
                            (fn [[id target-percentage]]
                              {:account (find-account-fn id)
@@ -324,9 +371,10 @@
         net (->> result
                  (map :adj-value)
                  (reduce d/+ withdrawal))]
-    (if (d/zero? net)
-      result
-      (update-in result [0 :adj-value] d/- net))))
+    (mapv (+est-gain lots-by-commodity inventory-method)
+          (if (d/zero? net)
+            result
+            (update-in result [0 :adj-value] d/- net)))))
 
 (defn- valuate-simple-accounts
   "Perform valuation of accounts that use the default entity commodity."

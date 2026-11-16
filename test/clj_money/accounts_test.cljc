@@ -326,6 +326,66 @@
                 (reduce dec/+)))
         "The net change is the amount of the withdrawal")))
 
+;; :a is overweight by 200 shares at $10, spanning both of its lots
+(def ^:private gain-accounts
+  {:ira {:id :ira
+         :account/total-value (d 10000)
+         :account/value (d 0)
+         :account/allocations {:a (d 50)
+                               :b (d 50)}}
+   :a {:id :a
+       :account/commodity {:id :aaa}
+       :account/quantity (d 700)
+       :account/value (d 7000)}
+   :b {:id :b
+       :account/commodity {:id :bbb}
+       :account/quantity (d 300)
+       :account/value (d 3000)}})
+
+(def ^:private gain-lots
+  [{:lot/commodity {:id :aaa}
+    :lot/purchase-date (t/local-date 2020 1 1)
+    :lot/purchase-price (d 8)
+    :lot/shares-owned (d 100)}
+   {:lot/commodity {:id :aaa}
+    :lot/purchase-date (t/local-date 2021 1 1)
+    :lot/purchase-price (d 11)
+    :lot/shares-owned (d 600)}
+   {:lot/commodity {:id :aaa}
+    :lot/purchase-date (t/local-date 2019 1 1)
+    :lot/purchase-price (d 1)
+    :lot/shares-owned (d 0)}
+   {:lot/commodity {:id :bbb}
+    :lot/purchase-date (t/local-date 2020 1 1)
+    :lot/purchase-price (d 5)
+    :lot/shares-owned (d 300)}])
+
+(defn- est-gains
+  [& opts]
+  (->> (apply accounts/allocate
+              (gain-accounts :ira)
+              gain-accounts
+              :lots gain-lots
+              opts)
+       (sort-by (comp :id :account))
+       (map (juxt (comp :id :account) :adj-value :est-gain))))
+
+(deftest estimate-the-gain-or-loss-of-each-sale
+  (is (= [[:a (d -2000) (d 100)]
+          [:b (d 2000) nil]]
+         (est-gains))
+      "The oldest lots are sold first by default, and purchases have no gain")
+  (is (= [[:a (d -2000) (d -200)]
+          [:b (d 2000) nil]]
+         (est-gains :inventory-method :lifo))
+      "The newest lots are sold first with :lifo")
+  (is (= [[:a (d -2000) nil]
+          [:b (d 2000) nil]]
+         (->> (accounts/allocate (gain-accounts :ira) gain-accounts)
+              (sort-by (comp :id :account))
+              (map (juxt (comp :id :account) :adj-value :est-gain))))
+      "No gain is estimated without lots"))
+
 (deftest find-account-by-path
   (let [accounts (map #(hash-map :account/path %)
                       [["Investments"]

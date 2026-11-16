@@ -17,21 +17,24 @@
             [clj-money.util :refer [id=]]
             [clj-money.components :refer [button]]
             [clj-money.api.accounts :as accounts]
+            [clj-money.api.lots :as lots]
             [clj-money.accounts :refer [allocate]]
             [clj-money.state :refer [accounts
                                      accounts-by-id
+                                     current-entity
                                      +busy
                                      -busy]]
             [clj-money.cached-accounts :refer [latest]]))
 
 (defn- prepare-for-allocation
   "Supplies allocations to an account that has none, in proportion to the
-  current values of its children"
+  current values of its visible children"
   [{:account/keys [children-value allocations] :as account}]
   (if allocations
     account
-    (let [children (filterv #(id= account
-                                  (:account/parent %))
+    (let [children (filterv #(and (id= account
+                                       (:account/parent %))
+                                  (not (:account/hidden %)))
                             @accounts)]
       (if (seq children)
         (assoc account
@@ -70,16 +73,32 @@
                  :callback -busy
                  :on-success on-save))
 
+(defn- load-lots
+  [account state]
+  (+busy)
+  (lots/select {:lot/account account}
+               :callback -busy
+               :on-success #(reset! state %)))
+
+(defn- gain-loss
+  [est-gain]
+  (when est-gain
+    [:span {:class (if (decimal/< est-gain 0M)
+                     "text-danger"
+                     "text-success")}
+     (currency-format est-gain)]))
+
 (defn- asset-allocation-row
   [{:keys [account
            adj-value
+           est-gain
            target-value
            current-value
            current-percentage]}
    parent
    hide-zero-balances?]
   ^{:key (str "asset-allocation-row-" (:id account))}
-  [:tr {:class (when (and (decimal/zero? (:quantity account))
+  [:tr {:class (when (and (decimal/zero? (:account/quantity account 0M))
                           hide-zero-balances?)
                  "d-none")}
    [:td (:account/name account)]
@@ -87,25 +106,35 @@
    [:td.text-end.d-none.d-lg-table-cell (currency-format target-value)]
    [:td.text-end.d-none.d-lg-table-cell (format-percent current-percentage)]
    [:td.text-end.d-none.d-lg-table-cell (currency-format current-value)]
-   [:td.text-end (currency-format adj-value)]])
+   [:td.text-end (currency-format adj-value)]
+   [:td.text-end (gain-loss est-gain)]])
 
 (defn asset-allocation
   [allocation & _opts]
   (let [account (r/cursor allocation [:account])
         cash (r/cursor allocation [:cash])
         withdrawal (r/cursor allocation [:withdrawal])
-        allocations (make-reaction #(when (and @cash @withdrawal)
-                                      (sort-by (comp :account/name :account)
-                                               (allocate @account
-                                                         @accounts-by-id
-                                                         :cash @cash
-                                                         :withdrawal @withdrawal))))
+        account-lots (r/atom nil)
+        allocations (make-reaction
+                      #(when (and @cash @withdrawal)
+                         (->> (allocate @account
+                                        @accounts-by-id
+                                        :cash @cash
+                                        :withdrawal @withdrawal
+                                        :lots @account-lots
+                                        :inventory-method (some-> @current-entity
+                                                                  (get-in [:entity/settings
+                                                                           :settings/inventory-method])
+                                                                  keyword))
+                              (remove (comp :account/hidden :account))
+                              (sort-by (comp :account/name :account)))))
         total-percent (make-reaction #(decimal// (reduce decimal/+ 0M (vals (:account/allocations @account)))
                                                  100M))
         unallocated (make-reaction #(decimal/- 1M @total-percent))
         total-percent-class (make-reaction #(if (decimal/zero? @unallocated)
                                               "text-success"
                                               "text-danger"))]
+    (load-lots @account account-lots)
     (fn [_allocation & {:keys [hide-zero-balances? on-save on-cancel]}]
       [:form#allocation-form
        {:no-validate true
@@ -113,14 +142,14 @@
                      (.preventDefault e)
                      (save @account on-save))}
        [:div
-        [:h2 "Asset Allocation for " (:name @account) " " (currency-format (:total-value @account))]
+        [:h2 "Asset Allocation for " (:account/name @account) " " (currency-format (:account/total-value @account))]
         [:div.row
          [:div.col-md-6
           [:table.table.table-borderless
            [:tbody
             [:tr
              [:th {:scope :row} "Cash"]
-             [:td (currency-format (:quantity @account))]]
+             [:td (currency-format (:account/value @account))]]
             [:tr
              [:th {:scope :row} "Cash to reserve"]
              [:td
@@ -137,17 +166,20 @@
            [:th.text-end.d-none.d-lg-table-cell "Target $"]
            [:th.text-end.d-none.d-lg-table-cell  "Current %"]
            [:th.text-end.d-none.d-lg-table-cell  "Current $"]
-           [:th.text-end.text-nowrap "Adj. $"]]]
+           [:th.text-end.text-nowrap "Adj. $"]
+           [:th.text-end.text-nowrap
+            {:title "The estimated gain or loss realized by each sale"}
+            "Est. Gn/Ls"]]]
          [:tbody
           (if (seq @allocations)
             (->> @allocations
                  (map #(asset-allocation-row % account hide-zero-balances?))
                  doall)
-            [:tr [:td {:col-span 6} "This account has no child accounts."]])]
+            [:tr [:td {:col-span 7} "This account has no child accounts."]])]
          [:tfoot
           [:tr
            [:td (html/space)]
-           [:td {:col-span 5 :class @total-percent-class} (format-percent @total-percent)]]]]
+           [:td {:col-span 6 :class @total-percent-class} (format-percent @total-percent)]]]]
         [:div
          [button
           {:html {:title "Click here to save these allocations."

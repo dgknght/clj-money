@@ -65,7 +65,8 @@ into the caller's page state (issue #281).
   live in `views/accounts/`: `list` (the accounts table; deletes and
   reindexes itself, calls back for the rest), `filter` (its options, and
   `account-filter-fn`), `form` and `bulk_edit` (atom in, `:on-save` /
-  `:on-cancel` out, sharing the `tags` input), `allocation`, `lots` (loads
+  `:on-cancel` out, sharing the `tags` input), `allocation` (loads the
+  trading account's lots, to estimate the gain or loss of each sale), `lots` (loads
   its own lots and prices), `fund_transactions`, `tradable` (the lots and
   transactions tabs), `register` (the account's items, with the buttons
   beneath them as callbacks) and `attachments`. `items` loads the account's
