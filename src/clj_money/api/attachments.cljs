@@ -1,36 +1,19 @@
 (ns clj-money.api.attachments
   (:refer-clojure :exclude [update])
-  (:require [clojure.core.async :as a]
-            [cljs.pprint :refer [pprint]]
-            [cljs-http.client :as http]
-            [dgknght.app-lib.api-async :as lib-api]
-            [clj-money.api :as api :refer [add-error-handler]]
-            [clj-money.state :refer [app-state]]))
+  (:require [cljs.pprint :refer [pprint]]
+            [clj-money.api :as api :refer [add-error-handler]]))
 
 (defn create
-  [{:attachment/keys [transaction] :as attachment}
-   & {:as opts
-      :keys [on-success callback]
-      :or {on-success identity
-           callback identity}}]
+  [{:attachment/keys [transaction] :as attachment} & {:as opts}]
   {:pre [(:attachment/transaction attachment)]}
 
-  (let [{:keys [on-error]} (add-error-handler opts "Unable to create the attachment: %s")
-        ch (http/post (api/path :transactions
+  (api/post-multipart (api/path :transactions
                                 transaction
                                 :attachments)
-                      (-> (lib-api/request (assoc opts
-                                                  :handle-ex (fn [e]
-                                                              (callback)
-                                                              (on-error e)
-                                                              nil)))
-                          (lib-api/multipart-params
-                            (dissoc attachment :attachment/transaction))
-                          (assoc :oauth-token (:auth-token @app-state))))]
-    (a/go
-      (when-let [res (a/<! ch)]
-        (callback)
-        (on-success res)))))
+                      (dissoc attachment :attachment/transaction)
+                      (add-error-handler
+                        opts
+                        "Unable to create the attachment: %s")))
 
 (defn select
   [{:as criteria :attachment/keys [transaction]} & {:as opts}]

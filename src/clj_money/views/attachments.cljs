@@ -238,7 +238,8 @@
                                (notify/toast "Success" "The attachment was saved successfully.")
                                (when on-success (on-success pending created)))
                  :on-error (fn [e]
-                             (swap! page-state update :pending-attachment assoc :error (ex-message e))))))
+                             (swap! page-state update :pending-attachment assoc :error (ex-message e))
+                             e))))
 
 (defn pending-attachment-form
   [page-state & {:keys [on-save-success]}]

@@ -10,18 +10,14 @@
   account is identified from the statement. The response is the
   statement-ingestion that tracks the progress of the read."
   [file & {:keys [account] :as opts}]
-  (api/post (api/path :entities
-                      @current-entity
-                      :statement-ingestions)
-            (cond-> {:statement [file (.-name file)]}
-              account (assoc :account-id (str (:id account))))
-            (-> opts
-                (dissoc :account)
-                ; the encoding would otherwise set the Accept header to
-                ; application/multipart
-                (assoc :encoding :multipart
-                       :accept "application/edn")
-                (add-error-handler "Unable to upload the statement: %s"))))
+  (api/post-multipart (api/path :entities
+                                @current-entity
+                                :statement-ingestions)
+                      (cond-> {:statement [file (.-name file)]}
+                        account (assoc :account-id (str (:id account))))
+                      (-> opts
+                          (dissoc :account)
+                          (add-error-handler "Unable to upload the statement: %s"))))
 
 (defn get
   "Retrieves the statement-ingestion, to check on the progress of the read."

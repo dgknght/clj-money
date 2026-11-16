@@ -12,16 +12,11 @@
   [{:keys [blob filename]
     :or {filename "receipt.jpg"}}
    & {:as opts}]
-  (api/post (api/path :entities
-                      @current-entity
-                      :receipt-ingestions)
-            {:image [blob filename]}
-            (-> opts
-                ; the encoding would otherwise set the Accept header to
-                ; application/multipart
-                (assoc :encoding :multipart
-                       :accept "application/edn")
-                (add-error-handler "Unable to upload the receipt: %s"))))
+  (api/post-multipart (api/path :entities
+                                @current-entity
+                                :receipt-ingestions)
+                      {:image [blob filename]}
+                      (add-error-handler opts "Unable to upload the receipt: %s")))
 
 (defn get
   "Retrieves the receipt-ingestion, to check on the progress of the read."

@@ -92,6 +92,18 @@
              payload
              (authenticate options))))
 
+(defn post-multipart
+  "Posts the payload as a multipart form, e.g., to upload files. File values
+  are given as a js/File or a js/Blob, or as a [blob filename] tuple."
+  [url payload options]
+  (post url
+        payload
+        ; the encoding would otherwise set the Accept header to
+        ; application/multipart
+        (assoc options
+               :encoding :multipart
+               :accept "application/edn")))
+
 (defn patch
   [url payload options]
   (api/patch url

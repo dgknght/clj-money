@@ -19,11 +19,9 @@
   (let [params (-> import-data
                    ->multipart-params
                    (update-in-if [:options] pr-str))]
-    (api/post (api/path :imports)
-              params
-              (-> opts
-                  (assoc :encoding :multipart)
-                  (add-error-handler "Unable to create the import: %s")))))
+    (api/post-multipart (api/path :imports)
+                        params
+                        (add-error-handler opts "Unable to create the import: %s"))))
 
 (defn get
   [id & {:as opts}]
