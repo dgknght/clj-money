@@ -16,3 +16,8 @@
       "A basic mathematical expression is calculated")
   (is (= (d/d 6) (d/parse "10-4"))
       "Unspaced subtraction is calculated"))
+
+(deftest identify-a-zero-value
+  (is (d/zero? (d/d 0)) "Zero is zero")
+  (is (d/zero? (d/d "0.00")) "Zero with a scale is zero")
+  (is (not (d/zero? (d/d 0.01))) "A non-zero value is not zero"))

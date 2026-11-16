@@ -326,6 +326,31 @@
                 (reduce dec/+)))
         "The net change is the amount of the withdrawal")))
 
+(deftest reallocate-with-extra-cash
+  (let [accounts {:ira {:id :ira
+                        :account/total-value (d 100000)
+                        :account/value (d 20000)
+                        :account/allocations {:stocks (d 60)
+                                              :bonds (d 40)}}
+                  :stocks {:id :stocks
+                           :account/value (d 50000)}
+                  :bonds {:id :bonds
+                          :account/value (d 30000)}}
+        adjustments (accounts/allocate (accounts :ira)
+                                       accounts
+                                       :cash (d 5000))]
+    (is (= [[:bonds (d 8000)]
+            [:stocks (d 7000)]]
+           (->> adjustments
+                (sort-by (comp :id :account))
+                (map (juxt (comp :id :account) :adj-value))))
+        "The extra cash is invested according to the target allocations")
+    (is (= (d 15000)
+           (->> adjustments
+                (map :adj-value)
+                (reduce dec/+)))
+        "The net change is the cash not held back")))
+
 ;; :a is overweight by 200 shares at $10, spanning both of its lots
 (def ^:private gain-accounts
   {:ira {:id :ira

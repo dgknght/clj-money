@@ -23,7 +23,7 @@
              :cljs (d 0)))
 
 (def zero? #?(:clj (fn [^BigDecimal n]
-                      (.equals BigDecimal/ZERO n))
+                      (core/zero? (.signum n)))
               :cljs decimal/zero?))
 
 #?(:cljs (defn + [n1 n2] (decimal/+ n1 n2))

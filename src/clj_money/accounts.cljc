@@ -368,13 +368,15 @@
                              {:account (find-account-fn id)
                               :target-percentage target-percentage}))
                      allocations)
-        net (->> result
-                 (map :adj-value)
-                 (reduce d/+ withdrawal))]
+        ; the cash neither held back nor withdrawn is invested, so the
+        ; adjustments should net to it, and any difference is from rounding
+        expected-net (d/- value (d/+ cash-withheld withdrawal))
+        rounding-error (d/- (reduce d/+ 0M (map :adj-value result))
+                            expected-net)]
     (mapv (+est-gain lots-by-commodity inventory-method)
-          (if (d/zero? net)
+          (if (d/zero? rounding-error)
             result
-            (update-in result [0 :adj-value] d/- net)))))
+            (update-in result [0 :adj-value] d/- rounding-error)))))
 
 (defn- valuate-simple-accounts
   "Perform valuation of accounts that use the default entity commodity."
