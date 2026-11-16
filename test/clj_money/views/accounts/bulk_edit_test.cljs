@@ -10,8 +10,9 @@
   "Returns a stand-in for cljs-http's patch that answers every request
   with the response for the account in the given map and, like cljs-http,
   closes the channel after the response."
-  [responses]
-  (fn [uri {:keys [channel]}]
+  [responses requests]
+  (fn [uri {:keys [channel edn-params]}]
+    (swap! requests conj edn-params)
     (a/put! channel (some (fn [[id res]]
                             (when (re-find (re-pattern (str id "$")) uri)
                               res))
@@ -24,10 +25,16 @@
   requests stubbed to return the given responses, calling done with what
   was captured once the form reports that the save is finished. The stubs
   are set, rather than redefined, because the save continues after
-  with-redefs would have restored them."
-  [responses done]
+  with-redefs would have restored them.
+
+  changes are the values entered in the form (by default, the tag
+  :mandatory), and the accounts start out with the given attributes."
+  [responses done & {:keys [changes account-attrs]
+                     :or {changes {:account/user-tags #{:mandatory}}
+                          account-attrs {:account/user-tags #{:existing}}}}]
   (let [captured (atom {:warnings []
                         :toasts []})
+        requests (atom [])
         originals [http/patch notify/warnf notify/toast notify/dangerf]
         accounts (:accounts @app-state)
         restore (fn []
@@ -37,22 +44,24 @@
                     (set! notify/warnf w)
                     (set! notify/toast t)
                     (set! notify/dangerf d)))
-        bulk (atom {:account-ids (keys responses)
-                    :account/user-tags #{:mandatory}})
+        bulk (atom (assoc changes :account-ids (keys responses)))
         [_ {:keys [on-submit]}] (bulk-edit/bulk-edit-form
                                   bulk
                                   :on-save #(js/setTimeout
                                               (fn []
-                                                (restore)
-                                                (done @captured))
+                                                (let [result (assoc @captured
+                                                                    :requests @requests
+                                                                    :accounts (:accounts @app-state))]
+                                                  (restore)
+                                                  (done result)))
                                               10)
                                   :on-cancel identity)]
     (swap! app-state assoc :accounts (mapv (fn [id]
-                                             {:id id
-                                              :account/name (str "Account " id)
-                                              :account/user-tags #{}})
+                                             (merge {:id id
+                                                     :account/name (str "Account " id)}
+                                                    account-attrs))
                                            (keys responses)))
-    (set! http/patch (respond-with responses))
+    (set! http/patch (respond-with responses requests))
     (set! notify/warnf (fn [msg & args]
                          (swap! captured update :warnings conj (apply str msg args))))
     (set! notify/toast (fn [title msg]
@@ -74,3 +83,41 @@
                       (is (= 1 (count warnings))
                           "The failed update is reported")
                       (done)))))
+
+(deftest hide-several-accounts
+  (async done
+         (save-with {101 {:status 200
+                          :body {:id 101
+                                 :account/user-tags [:existing]
+                                 :account/hidden true}}
+                     102 {:status 200
+                          :body {:id 102
+                                 :account/user-tags [:existing]
+                                 :account/hidden true}}}
+                    (fn [{:keys [requests accounts]}]
+                      (is (= [true true]
+                             (map :account/hidden requests))
+                          "Each account is saved as hidden")
+                      (is (= [#{:existing} #{:existing}]
+                             (map (comp set :account/user-tags) requests))
+                          "The existing tags are left alone")
+                      (is (every? :account/hidden accounts)
+                          "The accounts are hidden in the app state")
+                      (done))
+                    :changes {:visibility "hide"})))
+
+(deftest show-several-accounts
+  (async done
+         (save-with {101 {:status 200
+                          :body {:id 101
+                                 :account/user-tags [:existing]}}}
+                    (fn [{:keys [requests accounts]}]
+                      (is (= [false]
+                             (map :account/hidden requests))
+                          "The account is saved as not hidden")
+                      (is (not-any? :account/hidden accounts)
+                          "The account is shown in the app state")
+                      (done))
+                    :changes {:visibility "show"}
+                    :account-attrs {:account/user-tags #{:existing}
+                                    :account/hidden true})))

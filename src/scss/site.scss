@@ -10,7 +10,28 @@
   text-transform: capitalize;
 }
 
-.account-depth-1, .account-depth-2, .account-depth-3, .account-depth-4,
+// A zero max-width lets the name column shrink to its share of the table
+// (set by the header) instead of growing to fit the longest name, which
+// pushed the table past its column. The name is truncated instead.
+.account-name {
+  max-width: 0;
+}
+
+.account-depth {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+
+  .toggle-ctl {
+    flex-shrink: 0;
+  }
+
+  .text-truncate {
+    display: block;
+    min-width: 0;
+  }
+}
+
 .value-depth-1, .value-depth-2, .value-depth-3, .value-depth-4 {
   display: block;
 }

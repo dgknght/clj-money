@@ -112,6 +112,15 @@
                        :path-segment-fn :account/name
                        :parent-ids-key :account/parent-ids})))
 
+(defn with-descendants
+  "Given an account and a sequence of accounts that have been unnested (and
+  so have :account/parent-ids), returns the account followed by those of
+  its descendants that are in the sequence."
+  [{:keys [id] :as account} accounts]
+  (cons account
+        (filter #(some #{id} (:account/parent-ids %))
+                accounts)))
+
 (defn left-side?
   "Returns truthy if the specified account is asset or expense, falsey if anything else"
   [{:account/keys [type] :as account}]

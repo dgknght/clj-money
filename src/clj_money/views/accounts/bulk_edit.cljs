@@ -1,5 +1,5 @@
 (ns clj-money.views.accounts.bulk-edit
-  "The form for tagging several accounts at once.
+  "The form for tagging, hiding or showing several accounts at once.
 
   The caller owns an atom (or cursor) holding the :account-ids of the
   selected accounts and renders
@@ -27,20 +27,37 @@
     (a/put! ch x)
     (a/close! ch)))
 
+(def ^:private visibility-options
+  [["" "Leave unchanged"]
+   ["hide" "Hide"]
+   ["show" "Show"]])
+
+(defn- changes-fn
+  "Returns a function that applies the changes described by the bulk edit
+  to an account. The tags are only changed when the user has edited them,
+  and the hidden attribute only when a visibility has been chosen."
+  [{:keys [merge-user-tags? visibility]
+    :account/keys [user-tags]
+    :as bulk-edit}]
+  (cond-> identity
+    (contains? bulk-edit :account/user-tags)
+    (comp (if merge-user-tags?
+            #(update-in % [:account/user-tags] union user-tags)
+            #(assoc % :account/user-tags user-tags)))
+
+    visibility
+    (comp #(assoc % :account/hidden (= "hide" visibility)))))
+
 (defn- bulk-save
   [bulk-edit on-save]
   (+busy)
-  (let [{:keys [account-ids
-                merge-user-tags?]
-         :account/keys [user-tags]} @bulk-edit
+  (let [{:keys [account-ids]} @bulk-edit
         find-account @accounts-by-id
-        apply-tags (if merge-user-tags?
-                     #(update-in % [:account/user-tags] union user-tags)
-                     #(assoc % :account/user-tags user-tags))
+        apply-changes (changes-fn @bulk-edit)
         ch (->> (if (coll? account-ids)
                   account-ids
                   [account-ids])
-                (map (comp apply-tags
+                (map (comp apply-changes
                            find-account))
                 (multi-save {:process (fn [a ch]
                                         ; :on-error handles the exception in the
@@ -60,7 +77,9 @@
           (swap! accounts (fn [as]
                             (mapv (fn [a]
                                     (if-let [updated (by-id (:id a))]
-                                      (assoc a :account/user-tags (:account/user-tags updated))
+                                      (assoc a
+                                             :account/user-tags (:account/user-tags updated)
+                                             :account/hidden (boolean (:account/hidden updated)))
                                       a))
                                   as))))
         (notify/toast "Update Finished"
@@ -81,6 +100,11 @@
     [:legend "Tags"]
     [tags-input bulk-edit]]
    [forms/checkbox-field bulk-edit [:merge-user-tags?] {:caption "Keep existing tags"}]
+   [forms/select-field
+    bulk-edit
+    [:visibility]
+    visibility-options
+    {:caption "Visibility"}]
    [button {:html {:title "Click here to apply these changes to the selected accounts."
                    :class "btn-primary"
                    :type :submit}

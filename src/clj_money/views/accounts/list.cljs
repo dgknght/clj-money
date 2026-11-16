@@ -23,7 +23,8 @@
             [clj-money.cached-accounts :refer [fetch-accounts
                                                latest]]
             [clj-money.accounts :refer [account-types
-                                        system-tagged?]]
+                                        system-tagged?
+                                        with-descendants]]
             [clj-money.state :as state :refer [+busy
                                                -busy]]
             [clj-money.views.accounts.filter :refer [account-filter-fn]]
@@ -67,6 +68,37 @@
       (and (seq parent-ids)
            (not-every? expanded parent-ids))))
 
+(defn- ->id-set
+  [ids]
+  (cond
+    (set? ids) ids
+    (nil? ids) #{}
+    :else #{ids}))
+
+(defn- select-with-children
+  "Selects the account and its descendants for a bulk edit, leaving out any
+  that the filter hides, and expands them so the selection can be seen."
+  [account {:keys [bulk-edit expanded] :as opts}]
+  (let [filter-fn (account-filter-fn (:filter opts))
+        hide-zero-balances? (get-in opts [:filter :hide-zero-balances?])
+        family (filter filter-fn
+                       (with-descendants account @state/accounts))
+        now-expanded (swap! expanded
+                            into
+                            (->> family
+                                 (filter :account/has-children?)
+                                 (map :id)))]
+    (swap! bulk-edit
+           update
+           :account-ids
+           #(into (->id-set %)
+                  (comp (remove (fn [a]
+                                  (account-hidden? a
+                                                   now-expanded
+                                                   hide-zero-balances?)))
+                        (map :id))
+                  family))))
+
 (defn- abbr-acct-name
   [account]
   [:span.text-truncate {:title (:account/name account)
@@ -89,7 +121,8 @@
                    on-view
                    on-edit
                    on-reconcile
-                   on-allocate]}]
+                   on-allocate]
+            :as opts}]
   [:div.d-flex
    [:div.btn-group
     [:button.btn.btn-info.btn-sm
@@ -121,6 +154,11 @@
                    :on-click #(on-allocate account)}
         (icon :pie-chart :size :small)
         "Allocate"])
+     (when (:account/has-children? account)
+       [menu-item {:title "Click here to select this account and its children for a bulk edit."
+                   :on-click #(select-with-children account opts)}
+        (icon :ui-checks :size :small)
+        "Select with children"])
      [menu-item {:title "Click here to recalculate the balance and transaction indexes for this account."
                  :on-click #(recalculate (latest account) recalculating)}
       (if (@recalculating (:id account))
@@ -136,7 +174,7 @@
   [{:keys [id] :account/keys [parent-ids] :as account} {:keys [expanded bulk-edit] :as opts}]
   ^{:key (str "account-" id)}
   [:tr.align-middle
-   [:td [:span.account-depth {:class (str "account-depth-" (count parent-ids))}
+   [:td.account-name [:span.account-depth {:class (str "account-depth-" (count parent-ids))}
          [:span.toggle-ctl {:on-click #(toggle-account id expanded)
                             :class (when-not (:account/has-children? account)
                                      "invisible")}

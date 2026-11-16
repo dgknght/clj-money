@@ -153,6 +153,19 @@
 (deftest nest-accounts
   (is (= nested-accounts (accounts/nest flat-accounts))))
 
+(deftest get-an-account-with-its-descendants
+  (let [accts [{:id 1 :account/parent-ids []}
+               {:id 2 :account/parent-ids [1]}
+               {:id 3 :account/parent-ids [1 2]}
+               {:id 4 :account/parent-ids []}
+               {:id 5 :account/parent-ids [4]}]]
+    (is (= [1 2 3]
+           (map :id (accounts/with-descendants (first accts) accts)))
+        "The children and grandchildren are included")
+    (is (= [3]
+           (map :id (accounts/with-descendants (nth accts 2) accts)))
+        "An account without children is returned alone")))
+
 (deftest check-for-a-user-tag
   (let [account {:account/user-tags #{:mandatory :retirement}}]
     (is (accounts/user-tagged? account :mandatory))
