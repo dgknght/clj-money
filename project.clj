@@ -53,7 +53,7 @@
                                                 commons-io]]
                  [cheshire "6.2.1" :exclusions [org.clojure/tools.reader]]
                  [com.github.kyleburton/clj-xpath "1.4.13" :exclusions [org.clojure/tools.reader]]
-                 [ch.qos.logback/logback-classic "1.6.6" :exclusions [org.clojure/tools.reader]]
+                 [ch.qos.logback/logback-classic "1.6.7" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/java.jdbc "0.7.12" :exclusions [org.clojure/tools.reader]]
                  [com.github.seancorfield/next.jdbc "1.4.72"]
                  [com.zaxxer/HikariCP "7.1.0" :exclusions [org.slf4j/slf4j-api]]
@@ -69,7 +69,7 @@
                  [clojure.java-time "1.4.3"]
                  [org.apache.pdfbox/pdfbox "3.0.8" :exclusions [commons-io
                                                             commons-logging]]
-                 [io.github.openhtmltopdf/openhtmltopdf-pdfbox "1.1.110" :exclusions [org.apache.pdfbox/pdfbox
+                 [io.github.openhtmltopdf/openhtmltopdf-pdfbox "1.1.114" :exclusions [org.apache.pdfbox/pdfbox
                                                                        commons-logging]]
                  [org.apache.commons/commons-fileupload2-javax "2.0.0-M5" :exclusions [commons-io]]
                  [ring "1.15.6" :exclusions [commons-codec
@@ -91,7 +91,7 @@
                  [metosin/muuntaja "0.6.12" :exclusions [com.fasterxml.jackson.core/jackson-annotations
                                                          com.fasterxml.jackson.core/jackson-databind
                                                          com.fasterxml.jackson.core/jackson-core]]
-                 [com.cognitect/transit-clj "1.1.367"]
+                 [com.cognitect/transit-clj "1.2.372"]
                  [hiccup "2.0.0" :exclusions [org.clojure/tools.reader]]
                  [cljs-http "0.1.49" :exclusions [org.clojure/tools.reader
                                                   org.clojure/tools.namespace]]
@@ -194,15 +194,15 @@
                    com.fasterxml.jackson.core/jackson-core
                    lein-doo]]
                  [lambdaisland/uri "1.19.155"]
-                 [com.taoensso/carmine "3.6.0" :exclusions [org.clojure/tools.reader commons-codec]]
+                 [com.taoensso/carmine "3.7.0" :exclusions [org.clojure/tools.reader commons-codec]]
                  [stowaway "0.2.18" :exclusions [com.github.seancorfield/honeysql org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging org.clojure/clojurescript]]
                  [io.opentelemetry/opentelemetry-api "1.68.0"]
                  [org.clojure/data.csv "1.1.1"]
-                 [org.clj-commons/hickory "0.7.7"]
+                 [org.clj-commons/hickory "0.7.8"]
                  [org.jsoup/jsoup] ; version managed above
                  [org.eclipse.angus/angus-mail "2.0.5"]
                  [com.cognitect.aws/api "0.8.847"]
-                 [com.cognitect.aws/endpoints "871.2.57.8"]
+                 [com.cognitect.aws/endpoints "871.2.59.1"]
                  [com.cognitect.aws/s3 "871.2.55.11"]
                  [integrant "1.0.1"]]
   :repl-options {:init-ns clj-money.repl
