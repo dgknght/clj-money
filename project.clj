@@ -279,7 +279,11 @@
              ; closure-compiler fat jar it brings (which bundles its own
              ; guava), out of the uberjar
              :provided {:dependencies [[org.clojure/clojurescript "1.12.145" :exclusions [org.clojure/tools.reader]]]}
-             :test {:dependencies [[peridot "0.5.4"]]
+             :test {:dependencies [[peridot "0.5.4"]
+                                   ; an in-memory OpenTelemetry SDK, so that tests can
+                                   ; assert on the spans and metrics that are produced
+                                   [io.opentelemetry/opentelemetry-sdk "1.68.0"]
+                                   [io.opentelemetry/opentelemetry-sdk-testing "1.68.0"]]
                     :resource-paths ^:replace ["env/test" "resources" "target"]
                     ; Reports progress to bin/parallel-test (a no-op unless
                     ; -Dtest.progress is set)

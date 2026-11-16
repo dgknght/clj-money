@@ -54,6 +54,14 @@
   `:otel-endpoint` (config `:otel-browser-endpoint`) in the app config.
   Anything ClojureScript reads from the bundle must be declared in
   `src/otel-externs.js`, or advanced compilation renames it
+- To test telemetry, require `clj-money.otel-helpers` (test), which
+  installs an in-memory OpenTelemetry SDK as the global instance, and call
+  `capture` with a function: it returns the `:result` (or `:exception`)
+  along with the `:spans` and `:metrics` produced during the call.
+  `collect-metrics` collects metrics (e.g. gauges) outside of `capture`.
+  Spans are only recorded during `capture`. Histograms are bound to the
+  global instance when first used, so a test that asserts on one must load
+  the helper before it is used (e.g. create the histogram in the test)
 
 ### Charts
 - Charts (e.g. the Account History report) are drawn by Chart.js, bundled
