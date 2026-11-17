@@ -20,6 +20,7 @@
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.forms-validation :as v]
             [clj-money.icons :refer [icon-with-text]]
+            [clj-money.cached-accounts :refer [fetch-accounts]]
             [clj-money.state :refer [accounts
                                      accounts-by-id
                                      current-entity
@@ -92,16 +93,35 @@
 
 (defn- shares-held
   "Returns the shares of the trade's commodity held in the trade's account,
-  read from the balance of the commodity account beneath it"
+  read from the balance of the commodity account beneath it. None are held
+  when there's no such account. Returns nil when it can't tell: the trade
+  has no account or commodity, or the accounts aren't loaded."
   [{:trade/keys [account commodity]}]
-  (when (and account commodity)
+  (when (and account commodity (seq @accounts))
     (let [commodity-id (or (:id commodity) commodity)]
-      (some (fn [{:account/keys [parent quantity] :as a}]
-              (when (and (id= parent account)
-                         (= commodity-id
-                            (get-in a [:account/commodity :id])))
-                (or quantity (decimal/zero))))
-            @accounts))))
+      (or (some (fn [{:account/keys [parent quantity] :as a}]
+                  (when (and (id= parent account)
+                             (= commodity-id
+                                (get-in a [:account/commodity :id])))
+                    (or quantity (decimal/zero))))
+                @accounts)
+          (decimal/zero)))))
+
+(defn- shares-held-text
+  "Shows the shares held beneath the shares field, with a warning when the
+  trade would part with more of them than are held. The server refuses such
+  a trade, but this only warns: the held shares come from the cached
+  accounts, which may not reflect the latest trades."
+  [held shares]
+  (when held
+    (let [short? (and (decimal/decimal? shares)
+                      (decimal/> shares held))]
+      [:p#shares-held.form-text.mt-n2
+       {:class (when short? "text-danger")}
+       "Shares held: "
+       (format-decimal held {:fraction-digits 4})
+       (when short?
+         " (this is more than the account holds)")])))
 
 (defn- account-field
   [trade path & {:as opts}]
@@ -124,6 +144,7 @@
   (when (v/valid? trade)
     (let [saving @trade
           on-success (fn [result]
+                       (fetch-accounts)
                        (on-save result)
                        (when (:repeat? @options)
                          (reset! trade (next-trade saving))
@@ -141,7 +162,9 @@
   [trade options _commodities]
   (let [dividend? (r/cursor trade [:trade/dividend?])
         transfer? (make-reaction #(= :transfer (:trade/action @trade)))
-        held (make-reaction #(when @transfer? (shares-held @trade)))
+        held (make-reaction #(when (#{:sell :transfer} (:trade/action @trade))
+                               (shares-held @trade)))
+        shares (r/cursor trade [:trade/shares])
         price (make-reaction #(->trade-price @trade))]
     (fn [_trade _options commodities]
       [:<>
@@ -157,10 +180,7 @@
        (if @transfer?
          [:<>
           [forms/decimal-field trade [:trade/shares] {:validations #{::v/required}}]
-          (when @held
-            [:p#shares-held.form-text.mt-n2
-             "Shares held: "
-             (format-decimal @held {:fraction-digits 4})])
+          [shares-held-text @held @shares]
           [forms/typeahead-field
            trade
            [:trade/to-account]
@@ -177,7 +197,8 @@
          [:<>
           [:div.row
            [:div.col-md-4
-            [forms/decimal-field trade [:trade/shares] {:validations #{::v/required}}]]
+            [forms/decimal-field trade [:trade/shares] {:validations #{::v/required}}]
+            [shares-held-text @held @shares]]
            [:div.col-md-4
             [forms/decimal-field trade [:trade/value] {:validations #{::v/required}}]]
            [:div.col-md-4.d-flex.flex-column
