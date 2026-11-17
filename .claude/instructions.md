@@ -31,6 +31,10 @@
   tracing to each implementation (see `clj-money.db/tracing-storage`,
   `clj-money.otel.ingestion/observable-reader` and
   `clj-money.prices.observable/provider`)
+- `with-tracing` can't wrap the body of a core.async `go` block (it puts
+  the body in a fn, which `go` can't park across), and the span context is
+  thread-local, so it doesn't follow work onto other threads. Run blocking
+  work on `a/thread` and trace it there (see `clj-money.import/run-import`)
 - Use `clj-money.otel/histogram` and `clj-money.otel/record` for metrics.
   Follow OpenTelemetry semantic convention names where one exists (e.g.
   `gen_ai.client.operation.duration`); a duration histogram already counts

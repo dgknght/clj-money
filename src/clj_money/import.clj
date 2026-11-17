@@ -8,6 +8,7 @@
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [uuid]]
             [clj-money.util :as util]
+            [clj-money.otel :as otel :refer [with-tracing]]
             [clj-money.progress :as prog]
             [clj-money.images :as images]
             [clj-money.entities :as entities]
@@ -341,8 +342,9 @@
 
 (defn- abort-for-missing-content
   "Ends an import whose source files can't be found in image storage,
-  reporting it the way any other fatal error is reported"
-  [images {:keys [out-chan entity wait-chan]}]
+  reporting it the way any other fatal error is reported. Returns the
+  result of the import."
+  [images {:keys [out-chan entity]}]
   (log/errorf "[import] content not found for images %s"
               (mapv (juxt :id :image/uuid) images))
   (let [notification {:import/record-type :notification
@@ -350,13 +352,12 @@
                       :notification/message
                       (format "The source file is no longer available: %s"
                               (string/join ", " (map :image/original-filename images)))}]
-    (a/go
-      (when out-chan
-        (a/>! out-chan notification)
-        (a/>! out-chan {:import/record-type :termination-signal}))
-      (a/>! wait-chan {:notifications [notification]
-                       :entity entity})
-      (a/close! wait-chan))))
+    (when out-chan
+      (a/>!! out-chan notification)
+      (a/>!! out-chan {:import/record-type :termination-signal}))
+    {:notifications [notification]
+     :entity entity
+     ::error-type "missing_content"}))
 
 (defmulti import-record*
   (fn [_ record]
@@ -676,6 +677,9 @@
     (assoc :reconciliation/include-children? true)))
 
 (defn- process-reconciliations
+  "Finalizes the imported reconciliations on another thread. Returns a
+  channel that closes when they're finished, after receiving ::failed if
+  they couldn't be finalized."
   [{:keys [entity accounts] :as ctx} out-chan]
   (let [reconciliations (entities/select
                           {:account/entity entity}
@@ -694,6 +698,7 @@
               reconciliations)
         (catch Throwable e
           (log/error e "[import] Unable to finalize reconciliations")
+          (a/>!! ch ::failed)
           (when out-chan
             (a/>!! out-chan {:import/record-type :notification
                              :notification/severity :fatal
@@ -800,6 +805,141 @@
 
 (def ^:private reconciliation-timeout-ms (* 30 60 1000))
 
+; Imports take from seconds to many minutes, beyond the range of
+; otel/duration-buckets
+(def ^:private import-duration
+  (otel/histogram "import.duration"
+                  :description "Duration of imports"
+                  :unit "s"
+                  :buckets [1 5 10 30 60 120 300 600 1200 1800 3600]))
+
+(defn- count-record
+  [ctx {:import/keys [record-type ignore?]}]
+  (if (or ignore? (= :notification record-type))
+    ctx
+    (update-in ctx [::record-counts record-type] (fnil inc 0))))
+
+(defn- import-records
+  "Reads the records from the source files and saves them. Returns the
+  import context, with ::abend? set if a fatal error stopped the import."
+  [contents source-type {:keys [import entity out-chan]}]
+  (with-tracing [span "import/records"]
+    (let [result (->> contents
+                      (map ->input-stream)
+                      (read-source source-type)
+                      (a/transduce
+                        (comp (filter-import)
+                              import-record
+                              (forward out-chan))
+                        (completing
+                          (fn [ctx {:import/keys [record-type]
+                                    :notification/keys [severity]
+                                    :as record}]
+                            (if (and (= :notification record-type)
+                                     (= :fatal severity))
+                              (reduced (assoc ctx ::abend? true))
+                              (count-record ctx record))))
+                        {:import import
+                         :account-ids {}
+                         :account-children {}
+                         :account-parents {}
+                         :notifications []
+                         :sorted-trxs (sorted-map)
+                         :entity entity})
+                      a/<!!)]
+      (doseq [[record-type c] (::record-counts result)]
+        (otel/set-attribute span :import :records (name record-type) (long c)))
+      result)))
+
+(defn- finalize-reconciliations
+  "Finalizes the imported reconciliations, waiting up to
+  reconciliation-timeout-ms. Returns the error type if they fail or time
+  out."
+  [result {:keys [import out-chan]}]
+  (with-tracing [span "import/reconciliations"]
+    (let [t (a/timeout reconciliation-timeout-ms)
+          [v c] (a/alts!! [(process-reconciliations result out-chan) t]
+                          :priority true)]
+      (cond
+        (= c t)
+        (do
+          (log/errorf "[import] timed out waiting for reconciliations for %s"
+                      (:import/entity-name import))
+          (when out-chan
+            (a/>!! out-chan {:import/record-type :notification
+                             :notification/severity :fatal
+                             :notification/message "Timed out waiting for reconciliations to finish."}))
+          (otel/set-status span :error "Timed out")
+          "timeout")
+
+        (= ::failed v)
+        (do
+          (otel/set-status span :error "Unable to finalize reconciliations")
+          "reconciliation_failed")
+
+        :else
+        (log/debugf "[import] finished processing reconciliations for %s"
+                    (:import/entity-name import))))))
+
+(defn- import-contents
+  "Imports the source files, propagates the imported transactions and
+  finalizes reconciliations. Returns the result of the import."
+  [contents source-type {:keys [import out-chan] :as opts}]
+  (let [result (import-records contents source-type opts)]
+    (when (seq (:accounts result))
+      (entities/put-many (vals (:accounts result))))
+    (let [error-type (if (::abend? result)
+                       "fatal"
+                       (do
+                         (with-tracing [_ "import/propagate"]
+                           (prop/propagate-all (:entity result)
+                                               {:progress-chan out-chan}))
+                         (log/debugf "[import] data imported, start reconciliations for %s"
+                                     (:import/entity-name import))
+                         (finalize-reconciliations result opts)))]
+      (when out-chan
+        (a/>!! out-chan {:import/record-type :termination-signal}))
+      (cond-> (select-keys result [:notifications :entity])
+        error-type (assoc ::error-type error-type)))))
+
+(defn- elapsed-seconds
+  [started]
+  (/ (- (System/nanoTime) started) 1e9))
+
+(defn- run-import
+  "Runs the import, tracing it and recording its duration. Returns the
+  result of the import."
+  [{:keys [images contents missing source-type entity] :as opts}]
+  (with-tracing [span "import/data"]
+    (let [attributes {"import.source_type" (name source-type)}
+          started (System/nanoTime)]
+      (otel/set-attribute span :import :source-type (name source-type))
+      (otel/set-attribute span :import :file-count (long (count images)))
+      (otel/set-attribute span :entity :id (str (:id entity)))
+      (try
+        (let [{::keys [error-type] :as result}
+              (if (seq missing)
+                (abort-for-missing-content missing opts)
+                (import-contents contents source-type opts))]
+          (when error-type
+            (otel/set-attribute span :error :type error-type)
+            (otel/set-status span
+                             :error
+                             (or (some #(when (= :fatal (:notification/severity %))
+                                          (:notification/message %))
+                                       (:notifications result))
+                                 error-type)))
+          (otel/record import-duration
+                       (elapsed-seconds started)
+                       (cond-> attributes
+                         error-type (assoc "error.type" error-type)))
+          (dissoc result ::error-type))
+        (catch Exception e
+          (otel/record import-duration
+                       (elapsed-seconds started)
+                       (assoc attributes "error.type" (.getName (class e))))
+          (throw e))))))
+
 (defn- import-data*
   [import-spec {:keys [out-chan]}]
   (let [user (-> import-spec :import/user entities/find)
@@ -807,72 +947,30 @@
                     (map :id)
                     entities/find-many)
         contents (mapv (comp images/get :image/uuid) images)
-        missing (->> (map vector images contents)
-                     (remove second)
-                     (map first))
-        source-type (get-source-type (first images))
         entity ((some-fn entities/find-by entities/put)
                 {:entity/user user
                  :entity/name (:import/entity-name import-spec)})
         wait-chan (a/promise-chan)]
     (log/infof "[import] Import process starting for \"%s\"."
                (:import/entity-name import-spec))
-    (if (seq missing)
-      (abort-for-missing-content missing {:out-chan out-chan
-                                          :entity entity
-                                          :wait-chan wait-chan})
-      (a/go
-        (try
-          (let [result (->> contents
-                            (map ->input-stream)
-                            (read-source source-type)
-                            (a/transduce
-                              (comp (filter-import)
-                                    import-record
-                                    (forward out-chan))
-                              (completing
-                                (fn [ctx {:import/keys [record-type]
-                                          :notification/keys [severity]}]
-                                  (if (and (= :notification record-type)
-                                           (= :fatal severity))
-                                    (reduced (assoc ctx ::abend? true))
-                                    ctx)))
-                              {:import import-spec
-                               :account-ids {}
-                               :account-children {}
-                               :account-parents {}
-                               :notifications []
-                               :sorted-trxs (sorted-map)
-                               :entity entity})
-                            a/<!!)]
-            (when (seq (:accounts result))
-              (entities/put-many (vals (:accounts result))))
-            (when-not (::abend? result)
-              (prop/propagate-all (:entity result) {:progress-chan out-chan})
-              (log/debugf "[import] data imported, start reconciliations for %s"
-                          (:import/entity-name import-spec))
-              (let [t (a/timeout reconciliation-timeout-ms)
-                    [_ c] (a/alts!! [(process-reconciliations result
-                                                              out-chan)
-                                     t]
-                                    :priority true)]
-                (if (= c t)
-                  (do
-                    (log/errorf "[import] timed out waiting for reconciliations for %s"
-                                (:import/entity-name import-spec))
-                    (when out-chan
-                      (a/>! out-chan {:import/record-type :notification
-                                      :notification/severity :fatal
-                                      :notification/message "Timed out waiting for reconciliations to finish."})))
-                  (log/debugf "[import] finished processing reconciliations for %s"
-                              (:import/entity-name import-spec)))))
-            (when out-chan
-              (a/>! out-chan {:import/record-type :termination-signal}))
-            (a/>! wait-chan (select-keys result [:notifications :entity])))
-          (finally
-            (log/infof "[import] Import process has ended for \"%s\"."
-                       (:import/entity-name import-spec))
-            (a/close! wait-chan)))))
+    ; The import blocks on I/O throughout, so it runs on its own thread
+    ; rather than in a go block
+    (a/thread
+      (try
+        (a/>!! wait-chan
+               (run-import {:import import-spec
+                            :images images
+                            :contents contents
+                            :missing (->> (map vector images contents)
+                                          (remove second)
+                                          (map first))
+                            :source-type (get-source-type (first images))
+                            :entity entity
+                            :out-chan out-chan}))
+        (finally
+          (log/infof "[import] Import process has ended for \"%s\"."
+                     (:import/entity-name import-spec))
+          (a/close! wait-chan))))
     {:entity entity
      :wait-chan wait-chan}))
 

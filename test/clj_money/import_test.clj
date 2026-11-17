@@ -1,6 +1,7 @@
 (ns clj-money.import-test
   (:require [clojure.test :refer [deftest is use-fixtures testing]]
             [clojure.java.io :as io]
+            [clojure.string :as string]
             [clojure.core.async :as a]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
@@ -24,6 +25,7 @@
             [clj-money.entities.schema :as schema]
             [clj-money.reports.balance-sheet :as balance-sheet]
             [clj-money.reports.income-statement :as income-statement]
+            [clj-money.otel-helpers :refer [capture]]
             [clj-money.import :refer [import-data] :as imp]
             [clj-money.import.gnucash]
             [clj-money.import.edn]))
@@ -354,6 +356,97 @@
                 "The import finishes")))
         (finally
           (deliver release true))))))
+
+;; Telemetry
+
+(defn- capture-import
+  "Runs the Personal import, returning the import spans by name and the
+  import duration points, as captured by otel-helpers/capture"
+  []
+  (let [{:keys [spans metrics]}
+        (capture #(execute-import (find-import "Personal")
+                                  :out-chan (a/chan (a/sliding-buffer 10))))]
+    {:spans (->> spans
+                 (filter #(string/starts-with? (:name %) "import/"))
+                 (map (juxt :name identity))
+                 (into {}))
+     :points (get-in metrics ["import.duration" :points])}))
+
+(deftest trace-an-import
+  (with-context gnucash-context
+    (let [{:keys [spans points]} (capture-import)
+          root (spans "import/data")]
+      (is (= {:status :unset
+              :attributes {"import.source_type" "gnucash"
+                           "import.file_count" 1
+                           "entity.id" (str (:id (entities/find-by {:entity/name "Personal"})))}}
+             (select-keys root [:status :attributes]))
+          "The import is traced with its source type, file count and entity")
+      (is (= #{(:span-id root)}
+             (->> ["import/records" "import/propagate" "import/reconciliations"]
+                  (map (comp :parent-span-id spans))
+                  set))
+          "Each phase of the import is traced within the import")
+      ; The 5 GnuCash placeholder accounts (e.g. "Assets") are ignored
+      (is (= {"import.records.account" 4
+              "import.records.commodity" 1
+              "import.records.transaction" 6}
+             (-> (spans "import/records")
+                 :attributes
+                 (select-keys ["import.records.account"
+                               "import.records.commodity"
+                               "import.records.transaction"])))
+          "The records imported, not those ignored, are counted by type")
+      (is (= [{:count 1
+               :attributes {"import.source_type" "gnucash"}}]
+             (map #(select-keys % [:count :attributes]) points))
+          "The duration of the import is recorded"))))
+
+(defn- assert-failed-import
+  [{:keys [spans points]} error-type message]
+  (is (= {:status :error
+          :status-description message
+          :error-type error-type}
+         {:status (get-in spans ["import/data" :status])
+          :status-description (get-in spans ["import/data" :status-description])
+          :error-type (get-in spans ["import/data" :attributes "error.type"])})
+      "The import span reports the failure")
+  (is (= [{"import.source_type" "gnucash"
+           "error.type" error-type}]
+         (map :attributes points))
+      "The duration is recorded with the error type"))
+
+(deftest trace-an-import-with-missing-content
+  (with-context gnucash-context
+    (with-redefs [images/get (constantly nil)]
+      (assert-failed-import (capture-import)
+                            "missing_content"
+                            "The source file is no longer available: sample.gnucash"))))
+
+(deftest trace-an-import-that-halts
+  (with-context gnucash-context
+    (let [og-put entities/put]
+      (with-redefs [entities/put (fn [x & args]
+                                   (if (util/entity-type? x :commodity)
+                                     (throw (ex-info "Induced error" {}))
+                                     (apply og-put x args)))]
+        (assert-failed-import (capture-import)
+                              "fatal"
+                              "An error occurred while trying to save record of type \"commodity\": Induced error")))))
+
+(deftest trace-an-import-whose-reconciliations-fail
+  (with-context gnucash-context
+    (let [og-put entities/put]
+      (with-redefs [entities/put (fn [x & args]
+                                   (if (finalizing-reconciliation? x)
+                                     (throw (Error. "Induced error"))
+                                     (apply og-put x args)))]
+        (let [{:keys [spans] :as captured} (capture-import)]
+          (assert-failed-import captured
+                                "reconciliation_failed"
+                                "reconciliation_failed")
+          (is (= :error (get-in spans ["import/reconciliations" :status]))
+              "The reconciliations span reports the failure"))))))
 
 (def ^:private include-children-context
   (conj base-context
