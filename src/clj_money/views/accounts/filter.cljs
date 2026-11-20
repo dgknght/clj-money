@@ -3,20 +3,34 @@
   filter-toggle.
 
   The caller owns an atom (or cursor) holding the options,
-  :hide-zero-balances?, :show-hidden? and :tags (the names of the tags whose
-  accounts are shown, or \"_untagged\"), and renders
+  :hide-zero-balances?, :show-hidden?, :unused-only? and :tags (the names of
+  the tags whose accounts are shown, or \"_untagged\"), and renders
   [account-filter options]. account-filter-fn turns the options into a
   predicate for the accounts to show."
   (:require [clojure.set :refer [intersection]]
             [reagent.ratom :refer [make-reaction]]
             [dgknght.app-lib.forms :as forms]
             [clj-money.icons :refer [icon]]
+            [clj-money.accounts :refer [unused-ids]]
             [clj-money.state :refer [accounts]]))
 
+(defn- unused-match-fn
+  "Returns a predicate for the accounts that have never had a transaction,
+  along with their ancestors, so that the unused accounts can be reached in
+  the nested list."
+  [accounts]
+  (let [unused (unused-ids accounts)
+        ancestors (into #{}
+                        (comp (filter (comp unused :id))
+                              (mapcat :account/parent-ids))
+                        accounts)]
+    (comp (some-fn unused ancestors) :id)))
+
 (defn account-filter-fn
-  "Returns a predicate for the accounts the options leave in the list, apart
-  from those with zero balances"
-  [{:keys [tags show-hidden?]}]
+  "Given the filter options and all of the (unnested) accounts, returns a
+  predicate for the accounts the options leave in the list, apart from
+  those with zero balances"
+  [{:keys [tags show-hidden? unused-only?]} accounts]
   (let [tags (set (map keyword tags))
         tag-match? (cond
                      (tags :_untagged) (comp empty? :account/user-tags)
@@ -25,6 +39,9 @@
                                       :account/user-tags)
                      :else (constantly true))]
     (every-pred tag-match?
+                (if unused-only?
+                  (unused-match-fn accounts)
+                  (constantly true))
                 (fn [account]
                   (or show-hidden?
                       (not (:account/hidden account)))))))
@@ -60,6 +77,13 @@
          {:caption "Show Hidden Accounts"}]
         [:label.form-check-label {:for "show-hidden"}
          "Show hidden accounts"]]
+       [:div.form-check.mb-1
+        [forms/checkbox-input
+         options
+         [:unused-only?]
+         {:caption "Only Accounts Without Transactions"}]
+        [:label.form-check-label {:for "unused-only"}
+         "Only accounts without transactions"]]
        [forms/checkbox-inputs
         options
         [:tags]

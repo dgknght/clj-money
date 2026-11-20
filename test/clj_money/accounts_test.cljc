@@ -796,3 +796,16 @@
       "A commodity account can't receive a transfer")
   (is (not (accounts/transfer-destination? #:account{:type :income}))
       "A non-asset account can't receive a transfer"))
+
+(deftest find-the-unused-accounts
+  (is (= #{3 4}
+         (accounts/unused-ids
+           [{:id 1}
+            {:id 2
+             :account/parent-ids [1]
+             :account/transaction-date-range [(t/local-date 2020 1 1)
+                                              (t/local-date 2020 1 1)]}
+            {:id 3
+             :account/parent-ids [1]}
+            {:id 4}]))
+      "An account is unused when neither it nor any descendant has a transaction"))

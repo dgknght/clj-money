@@ -10,7 +10,10 @@
   :filter holds the options of clj-money.views.accounts.filter, :expanded is
   an atom holding the set of the ids of the expanded accounts (and the
   account types), and :bulk-edit is an atom (or cursor) whose :account-ids
-  are the ids of the accounts selected for a bulk edit."
+  are the ids of the accounts selected for a bulk edit.
+
+  Accounts that have never had a transaction, either directly or through a
+  descendant, are muted and marked, to help find accounts to clean up."
   (:require [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [reagent.format :refer [currency-format]]
@@ -24,6 +27,7 @@
                                                latest]]
             [clj-money.accounts :refer [account-types
                                         system-tagged?
+                                        unused-ids
                                         with-descendants]]
             [clj-money.state :as state :refer [+busy
                                                -busy]]
@@ -79,7 +83,7 @@
   "Selects the account and its descendants for a bulk edit, leaving out any
   that the filter hides, and expands them so the selection can be seen."
   [account {:keys [bulk-edit expanded] :as opts}]
-  (let [filter-fn (account-filter-fn (:filter opts))
+  (let [filter-fn (account-filter-fn (:filter opts) @state/accounts)
         hide-zero-balances? (get-in opts [:filter :hide-zero-balances?])
         family (filter filter-fn
                        (with-descendants account @state/accounts))
@@ -100,8 +104,10 @@
                   family))))
 
 (defn- abbr-acct-name
-  [account]
-  [:span.text-truncate {:title (:account/name account)
+  [account unused?]
+  [:span.text-truncate {:title (cond-> (:account/name account)
+                                 unused? (str " (no transactions)"))
+                        :class (when unused? "text-body-secondary fst-italic")
                         :data-bs-toggle :tooltip
                         :data-bs-placement :top}
    (:account/name account)])
@@ -171,7 +177,7 @@
       "Delete"]]]])
 
 (defn- account-row
-  [{:keys [id] :account/keys [parent-ids] :as account} {:keys [expanded bulk-edit] :as opts}]
+  [{:keys [id] :account/keys [parent-ids] :as account} {:keys [expanded bulk-edit unused] :as opts}]
   ^{:key (str "account-" id)}
   [:tr.align-middle
    [:td.account-name [:span.account-depth {:class (str "account-depth-" (count parent-ids))}
@@ -182,7 +188,10 @@
                   :chevron-down
                   :chevron-right)
                 :size :small)]
-         (abbr-acct-name account)]]
+         (abbr-acct-name account (unused id))
+         (when (unused id)
+           [:span.badge.text-bg-secondary.ms-2.d-none.d-sm-inline
+            "No transactions"])]]
    [:td.text-end.d-none.d-sm-table-cell.value-depth
     [:span {:class (str "value-depth-" (count parent-ids))}
      (currency-format (:account/total-value account))]]
@@ -227,9 +236,11 @@
 
 (defn- account-and-type-rows
   [_opts]
-  (let [grouped (make-reaction #(group-by :account/type @state/accounts))]
+  (let [grouped (make-reaction #(group-by :account/type @state/accounts))
+        unused (make-reaction #(unused-ids @state/accounts))]
     (fn [{:keys [filter expanded] :as opts}]
-      (let [filter-fn (account-filter-fn filter)]
+      (let [filter-fn (account-filter-fn filter @state/accounts)
+            opts (assoc opts :unused @unused)]
         [:tbody
          (->> account-types
               (keep (fn [account-type]

@@ -121,6 +121,20 @@
         (filter #(some #{id} (:account/parent-ids %))
                 accounts)))
 
+(defn unused-ids
+  "Given a sequence of accounts that have been unnested (and so have
+  :account/parent-ids), returns the set of ids of the accounts that have
+  never had a transaction, either directly or through a descendant."
+  [accounts]
+  (let [used (into #{}
+                   (comp (filter (comp seq :account/transaction-date-range))
+                         (mapcat #(cons (:id %) (:account/parent-ids %))))
+                   accounts)]
+    (into #{}
+          (comp (map :id)
+                (remove used))
+          accounts)))
+
 (defn left-side?
   "Returns truthy if the specified account is asset or expense, falsey if anything else"
   [{:account/keys [type] :as account}]
