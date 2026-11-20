@@ -247,6 +247,7 @@
 
 (def ^:private self-reference?
   (every-pred map-entry?
+              (comp ident? key) ; e.g. :account/allocations is keyed by ids
               (comp (partial = "_self")
                     (comp name key))))
 

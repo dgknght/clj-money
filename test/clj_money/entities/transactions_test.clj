@@ -1085,6 +1085,18 @@
              (transactions/balance-as-of checking 2016 2 29))
           "The February value is the balance for the last item in the period"))))
 
+; An account map passed as a criterion is walked when the criteria are
+; normalized, and :account/allocations is keyed by (non-keyword) ids
+(dbtest get-a-balance-as-of-for-an-account-with-allocations
+  (with-context balance-delta-context
+    (let [salary (find-account "Salary")
+          checking (entities/put
+                     (assoc (reload-account "Checking")
+                            :account/allocations {(:id salary) 100M}))]
+      (is (= 2001M
+             (transactions/balance-as-of checking 2016 1 31))
+          "The balance is returned without error"))))
+
 ; Regression test for #56: last-transaction-item-on-or-before must resolve
 ; ties between same-day items to the truly latest one. It's sorted by
 ; :transaction-item/index alone (assigned per-account in strict
