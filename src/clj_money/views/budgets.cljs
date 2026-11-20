@@ -15,6 +15,7 @@
             [dgknght.app-lib.forms-validation :as v]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.util :as util]
+            [clj-money.validation :refer [drop-rules]]
             [clj-money.components :refer [button
                                           spinner]]
             [clj-money.icons :refer [icon]]
@@ -349,6 +350,24 @@
                                                            items)))
                             (dissoc :selected-item))))))
 
+(def ^:private entry-mode-fields
+  {:per-period []
+   :per-total [[:budget-item/spec :total]]
+   :per-average [[:budget-item/spec :average]]
+   :per-week [[:budget-item/spec :amount]
+              [:budget-item/spec :start-date]
+              [:budget-item/spec :week-count]]
+   :historical [[:budget-item/spec :start-date]]})
+
+(defn- drop-hidden-field-rules
+  "Removes the rules for the fields that the selected entry mode doesn't show"
+  [item]
+  (let [shown (set (entry-mode-fields (:entry-mode @item)))]
+    (drop-rules item (->> (vals entry-mode-fields)
+                          (apply concat)
+                          (remove shown)
+                          distinct))))
+
 (defn- save-budget-item
   [page-state]
   (+busy)
@@ -413,28 +432,28 @@
 (defn- period-fields-per-total
   [item]
   ^{:key "period-field-total"}
-  [forms/decimal-field item [:budget-item/spec :total] {:validate [:required]}])
+  [forms/decimal-field item [:budget-item/spec :total] {:validations #{::v/required}}])
 
 (defn- period-fields-per-average
   [item]
   ^{:key "period-field-average"}
-  [forms/decimal-field item [:budget-item/spec :average] {:validate [:required]}])
+  [forms/decimal-field item [:budget-item/spec :average] {:validations #{::v/required}}])
 
 (defn- period-fields-weekly
   [item]
   [:<>
   ^{:key "period-field-amount-per"}
-   [forms/decimal-field item [:budget-item/spec :amount] {:validate [:required]}]
+   [forms/decimal-field item [:budget-item/spec :amount] {:validations #{::v/required}}]
   ^{:key "period-field-start-date"}
-   [forms/date-field item [:budget-item/spec :start-date] {:validate [:required]}]
+   [forms/date-field item [:budget-item/spec :start-date] {:validations #{::v/required}}]
   ^{:key "period-field-week-count"}
-   [forms/integer-field item [:budget-item/spec :week-count] {:validate [:required]}]])
+   [forms/integer-field item [:budget-item/spec :week-count] {:validations #{::v/required}}]])
 
 (defn- period-fields-historical
   [item]
   [:<>
   ^{:key "period-field-start-date"}
-   [forms/date-field item [:budget-item/spec :start-date] {:validate [:required]}]
+   [forms/date-field item [:budget-item/spec :start-date] {:validations #{::v/required}}]
   ^{:key "period-field-round-to"}
    [forms/integer-field item [:budget-item/spec :round-to]]])
 
@@ -567,7 +586,10 @@
       [:form {:no-validate true
               :on-submit (fn [e]
                            (.preventDefault e)
-                           (save-budget-item page-state))}
+                           (drop-hidden-field-rules item)
+                           (v/validate item)
+                           (when (v/valid? item)
+                             (save-budget-item page-state)))}
        [forms/typeahead-field
         item
         [:budget-item/account :id]
@@ -579,7 +601,8 @@
          :caption "Account"
          :value-fn :id
          :find-fn (fn [id callback]
-                    (callback (@accounts-by-id id)))}]
+                    (callback (@accounts-by-id id)))
+         :validations #{::v/required}}]
        [period-entry item page-state]
        [:div.mt-3
         [button {:html {:class "btn-primary"

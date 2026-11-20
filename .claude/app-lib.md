@@ -143,7 +143,15 @@ ClojureScript HTTP client:
 ### `dgknght.app-lib.forms-validation`
 Client-side validation:
 - `validate`, `valid?`
-- Built-in rules: `::v/required`, `::v/email`
+- Built-in rules: `::v/required`, `[::v/format re]`, `[::v/length {:min :max}]`,
+  `[::v/matches other-field]`; or a custom `{:key :pred :message}` map
+- Field components take rules as `{:validations #{::v/required}}`. Any other
+  key (`:validate`, `:validation`) or shape (a vector) is silently ignored.
+- Each field adds its rules to the model's metadata when it mounts, and they
+  stay after it unmounts. A form that swaps fields in and out must call
+  `clj-money.validation/drop-rules` for the hidden fields before `validate`.
+- A form must call `v/validate` then check `v/valid?` in its submit handler;
+  rules alone don't block a submit.
 
 ### `dgknght.app-lib.dom`
 - `set-focus` — programmatically focus a DOM element

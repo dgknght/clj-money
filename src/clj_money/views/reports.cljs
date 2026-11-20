@@ -119,12 +119,12 @@
         options
         [:start-date]
         {:placeholder "Start date"
-         :validate [:required]}]
+         :validations #{::v/required}}]
        [forms/date-field
         options
         [:end-date]
         {:placeholder "End date"
-         :validate [:required]}]
+         :validations #{::v/required}}]
        [:div.mt-3
         [:button.btn.btn-primary
          {:type :submit
@@ -232,7 +232,7 @@
         options
         [:as-of]
         {:placeholder "As Of"
-         :validate [:required]}]
+         :validations #{::v/required}}]
        [:div.mt-3
         [:button.btn.btn-primary
          {:type :submit
@@ -831,8 +831,8 @@
                (map (selected-account options))
                doall)
           [:span.text-body-secondary.mb-2 "Select one or more accounts."])]
-       [forms/date-field options [:start-date] {:validate [:required]}]
-       [forms/date-field options [:end-date] {:validate [:required]}]
+       [forms/date-field options [:start-date] {:validations #{::v/required}}]
+       [forms/date-field options [:end-date] {:validations #{::v/required}}]
        [forms/select-field
         options
         [:measure]
