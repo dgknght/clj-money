@@ -349,11 +349,13 @@
       [:form {:no-validate true
               :on-submit (fn [e]
                            (.preventDefault e)
-                           (save-and-start-import page-state))}
+                           (v/validate import-data)
+                           (when (v/valid? import-data)
+                             (save-and-start-import page-state)))}
        [:div.card
         [:div.card-header [:strong "Import Entity"]]
         [:div.card-body
-         [text-field import-data [:entity-name] {:validate [:required]}]
+         [text-field import-data [:entity-name] {:validations #{::v/required}}]
          [:div#import-source.drop-zone.bg-primary.text-light
           {:on-drag-over #(.preventDefault %)
            :on-drop (file-drop import-data)}

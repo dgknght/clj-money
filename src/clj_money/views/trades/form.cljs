@@ -20,6 +20,7 @@
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.forms-validation :as v]
             [clj-money.icons :refer [icon-with-text]]
+            [clj-money.validation :refer [drop-rules]]
             [clj-money.cached-accounts :refer [fetch-accounts]]
             [clj-money.state :refer [accounts
                                      accounts-by-id
@@ -78,18 +79,11 @@
                                        :trade/commodity-account))))
 
 (defn- drop-hidden-field-rules
-  "Validation rules stay in the model's metadata after their field is
-  unmounted, so remove the rules for the fields that the selected action
-  doesn't show"
+  "Removes the rules for the fields that the selected action doesn't show"
   [trade]
-  (let [hidden (if (= :transfer (:trade/action @trade))
-                 [[:trade/value]]
-                 [[:trade/to-account]])]
-    (swap! trade
-           vary-meta
-           update-in
-           [::v/validation ::v/rules]
-           #(apply dissoc % hidden))))
+  (drop-rules trade (if (= :transfer (:trade/action @trade))
+                      [[:trade/value]]
+                      [[:trade/to-account]])))
 
 (defn- shares-held
   "Returns the shares of the trade's commodity held in the trade's account,

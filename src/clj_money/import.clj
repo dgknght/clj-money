@@ -698,11 +698,13 @@
               reconciliations)
         (catch Throwable e
           (log/error e "[import] Unable to finalize reconciliations")
-          (a/>!! ch ::failed)
+          ; The notification goes out before ::failed releases the caller,
+          ; which sends the termination signal that ends the out-chan
           (when out-chan
             (a/>!! out-chan {:import/record-type :notification
                              :notification/severity :fatal
-                             :notification/message "Unable to finalize reconciliations."})))
+                             :notification/message "Unable to finalize reconciliations."}))
+          (a/>!! ch ::failed))
         (finally
           (a/close! ch))))
     ch))

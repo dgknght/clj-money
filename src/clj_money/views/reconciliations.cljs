@@ -74,22 +74,26 @@
                                first)))))))
 
 (defn- save-reconciliation*
-  [page-state & {:keys [on-success]}]
-  (+busy)
-  (let [{:keys [reconciliation items include-children?]} @page-state]
-    (-> reconciliation
-        (assoc :reconciliation/include-children? include-children?)
-        (apply-selections items)
-        (recs/save :callback -busy
-                   :on-success (fn [created]
-                                 (swap! page-state dissoc :reconciliation :items-sort)
-                                 (items/reset-item-loading page-state)
-                                 (when on-success (on-success created)))))))
+  "Saves the reconciliation with the given status, if it's valid"
+  [page-state status & {:keys [on-success]}]
+  (let [recon (r/cursor page-state [:reconciliation])]
+    (v/validate recon)
+    (when (v/valid? recon)
+      (+busy)
+      (let [{:keys [reconciliation items include-children?]} @page-state]
+        (-> reconciliation
+            (assoc :reconciliation/status status
+                   :reconciliation/include-children? include-children?)
+            (apply-selections items)
+            (recs/save :callback -busy
+                       :on-success (fn [created]
+                                     (swap! page-state dissoc :reconciliation :items-sort)
+                                     (items/reset-item-loading page-state)
+                                     (when on-success (on-success created)))))))))
 
 (defn- save-reconciliation
   [page-state]
-  (swap! page-state assoc-in [:reconciliation :reconciliation/status] :new)
-  (save-reconciliation* page-state))
+  (save-reconciliation* page-state :new))
 
 (defn load-previous-balance
   [page-state]
@@ -122,8 +126,8 @@
   [page-state]
   (let [account (:view-account @page-state)
         balance (get-in @page-state [:reconciliation :reconciliation/balance])]
-    (swap! page-state assoc-in [:reconciliation :reconciliation/status] :completed)
     (save-reconciliation* page-state
+                          :completed
                           :on-success (fn [_saved]
                                         ; completing the reconciliation accepts
                                         ; the transactions awaiting review in it
@@ -327,8 +331,8 @@
         [:div.card-body
          [statement-upload page-state reading]
          [statement-attachment recon]
-         [forms/date-field recon [:reconciliation/end-of-period]]
-         [forms/decimal-field recon [:reconciliation/balance]]
+         [forms/date-field recon [:reconciliation/end-of-period] {:validations #{::v/required}}]
+         [forms/decimal-field recon [:reconciliation/balance] {:validations #{::v/required}}]
          [forms/checkbox-field
           page-state
           [:include-children?]

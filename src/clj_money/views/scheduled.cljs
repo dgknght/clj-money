@@ -15,12 +15,14 @@
             [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.calendar :as calendar]
             [dgknght.app-lib.forms :as forms]
+            [dgknght.app-lib.forms-validation :as v]
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.icons :refer [icon
                                      icon-with-text]]
             [clj-money.app :refer [load-pending-count]]
+            [clj-money.validation :refer [drop-rules]]
             [clj-money.state :refer [app-state
                                      current-entity
                                      accounts
@@ -260,6 +262,17 @@
                     (remove empty-item?)
                     (mapv ->saveable-item)))))
 
+(defn- drop-hidden-field-rules
+  "Removes the rules for the date spec fields that the selected period
+  doesn't show"
+  [sched-tran]
+  (drop-rules sched-tran
+              (case (get-in @sched-tran [:scheduled-transaction/period 1])
+                :year []
+                :month [[:scheduled-transaction/date-spec :month]]
+                [[:scheduled-transaction/date-spec :month]
+                 [:scheduled-transaction/date-spec :day]])))
+
 (defn- save-sched-tran
   [page-state]
   (+busy)
@@ -360,14 +373,17 @@
               :class (when-not @sched-tran "d-none")
               :on-submit (fn [e]
                            (.preventDefault e)
-                           (save-sched-tran page-state))}
-       [forms/text-field sched-tran [:scheduled-transaction/description] {:validation [:required]}]
+                           (drop-hidden-field-rules sched-tran)
+                           (v/validate sched-tran)
+                           (when (v/valid? sched-tran)
+                             (save-sched-tran page-state)))}
+       [forms/text-field sched-tran [:scheduled-transaction/description] {:validations #{::v/required}}]
        [forms/text-field sched-tran [:scheduled-transaction/memo]]
        [:div.row
         [:div.col
-         [forms/date-field sched-tran [:scheduled-transaction/start-date] {:validation [:required]}]]
+         [forms/date-field sched-tran [:scheduled-transaction/start-date] {:validations #{::v/required}}]]
         [:div.col
-         [forms/date-field sched-tran [:scheduled-transaction/end-date] {:validation [:required]}]]]
+         [forms/date-field sched-tran [:scheduled-transaction/end-date]]]]
        [:div.row
         [:div.col
          [forms/select-field
@@ -382,19 +398,21 @@
          [forms/integer-field
           sched-tran
           [:scheduled-transaction/period 0]
-          {:validation [:required]
+          {:validations #{::v/required}
            :caption "Period Count"}]]]
        (case (get-in @sched-tran [:scheduled-transaction/period 1])
          :year [:div.row [:div.col [forms/select-field
                                     sched-tran
                                     [:scheduled-transaction/date-spec :month]
-                                    (map #(vector (csk/->kebab-case-keyword %)
-                                                  %)
-                                         calendar/month-names)
-                                    {:transform-fn keyword}]]
+                                    (cons ["" ""]
+                                          (map #(vector (csk/->kebab-case-keyword %)
+                                                        %)
+                                               calendar/month-names))
+                                    {:transform-fn keyword
+                                     :validations #{::v/required}}]]
                 [:div.col
-                 [forms/integer-field sched-tran [:scheduled-transaction/date-spec :day] {:validation [:required]}]]]
-         :month [forms/integer-field sched-tran [:scheduled-transaction/date-spec :day] {:validation [:required]}]
+                 [forms/integer-field sched-tran [:scheduled-transaction/date-spec :day] {:validations #{::v/required}}]]]
+         :month [forms/integer-field sched-tran [:scheduled-transaction/date-spec :day] {:validations #{::v/required}}]
          :week [forms/checkboxes-field sched-tran [:scheduled-transaction/date-spec :days] (map #(vector (csk/->kebab-case-keyword (:name %))
                                                                                                          (:abbreviation %))
                                                                                                 calendar/day-data)]

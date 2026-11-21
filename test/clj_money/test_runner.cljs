@@ -5,6 +5,7 @@
             [clj-money.accounts-test]
             [clj-money.budgets-test]
             [clj-money.util-test]
+            [clj-money.validation-test]
             [clj-money.transactions-test]
             [clj-money.scheduled-transactions-test]
             [clj-money.routes-test]
@@ -40,6 +41,7 @@
     'clj-money.accounts-test
     'clj-money.budgets-test
     'clj-money.util-test
+    'clj-money.validation-test
     'clj-money.transactions-test
     'clj-money.scheduled-transactions-test
     'clj-money.views.recent-transactions-test

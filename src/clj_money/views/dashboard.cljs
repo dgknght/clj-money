@@ -69,7 +69,8 @@
           :caption "Account"
           :value-fn :id
           :find-fn (fn [id callback]
-                     (callback (@accounts-by-id id)))}]
+                     (callback (@accounts-by-id id)))
+          :validations #{::v/required}}]
         [:button.btn.btn-primary
          {:type :submit
           :title "Click here to add this new monitor"
