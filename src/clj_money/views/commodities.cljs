@@ -165,8 +165,7 @@
     100))
 
 (defn- commodity-row
-  [{:commodity/keys [latest-price
-                     most-recent-price
+  [{:commodity/keys [most-recent-price
                      symbol
                      exchange]
     :as commodity}
@@ -180,7 +179,7 @@
      [:td.d-lg-table-cell.d-none symbol]
      [:td.d-lg-table-cell.d-none exchange]
      [:td.d-lg-table-cell.d-none.text-end (currency-format (:price/value most-recent-price))]
-     [:td.d-lg-table-cell.d-none.text-end (format-date latest-price)]
+     [:td.d-lg-table-cell.d-none.text-end (format-date (:price/trade-date most-recent-price))]
      [:td.text-end
       [:div.btn-group
        [:button.btn.btn-secondary.btn-sm
