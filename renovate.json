@@ -49,9 +49,9 @@
       "groupName": "Java"
     },
     {
-      "description": "Leave the eclipse-temurin Java major version to the Java group above",
+      "description": "Leave the eclipse-temurin Java major version to the Java group above. The dockerfile manager names the package with its registry, so match both forms",
       "matchManagers": ["dockerfile"],
-      "matchPackageNames": ["eclipse-temurin"],
+      "matchPackageNames": ["eclipse-temurin", "docker.io/eclipse-temurin"],
       "matchUpdateTypes": ["major"],
       "enabled": false
     },
