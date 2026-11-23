@@ -149,20 +149,24 @@
   "Renders a warning when the transaction in the given atom (or cursor)
   would overdraw an asset account as of its date"
   [transaction]
-  (r/with-let [fetched (r/atom {})
-               tracker (r/track! fetch-missing transaction fetched)]
-    (let [{:transaction/keys [transaction-date] :as trx} @transaction]
-      (when-let [overdrawn (seq (overdraws trx @fetched))]
-        [:div#overdraw-warning.alert.alert-warning
-         (str "This transaction would overdraw "
-              (string/join ", "
-                           (map (fn [[account balance]]
-                                  (str (:account/name account)
-                                       " (balance "
-                                       (format-decimal balance)
-                                       ")"))
-                                overdrawn))
-              " as of "
-              (format-local-date transaction-date)
-              ".")]))
-    (finally (r/dispose! tracker))))
+  (let [fetched (r/atom {})
+        tracker (r/track! fetch-missing transaction fetched)]
+    (r/create-class
+      {:display-name "overdraw-warning"
+       :component-will-unmount #(r/dispose! tracker)
+       :reagent-render
+       (fn [transaction]
+         (let [{:transaction/keys [transaction-date] :as trx} @transaction]
+           (when-let [overdrawn (seq (overdraws trx @fetched))]
+             [:div#overdraw-warning.alert.alert-warning
+              (str "This transaction would overdraw "
+                   (string/join ", "
+                                (map (fn [[account balance]]
+                                       (str (:account/name account)
+                                            " (balance "
+                                            (format-decimal balance)
+                                            ")"))
+                                     overdrawn))
+                   " as of "
+                   (format-local-date transaction-date)
+                   ".")])))})))
