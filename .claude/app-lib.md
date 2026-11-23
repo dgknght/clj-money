@@ -150,6 +150,10 @@ Client-side validation:
 - Each field adds its rules to the model's metadata when it mounts, and they
   stay after it unmounts. A form that swaps fields in and out must call
   `clj-money.validation/drop-rules` for the hidden fields before `validate`.
+- Rules that span several inputs (e.g. the scheduled transaction items) or
+  belong to a component without `:validations` (`checkboxes-field`) can be
+  added with `v/add-rules` under a pseudo-field in the submit handler, and
+  their messages rendered with `(v/validation-msg model field)`.
 - A form must call `v/validate` then check `v/valid?` in its submit handler;
   rules alone don't block a submit.
 

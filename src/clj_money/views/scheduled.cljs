@@ -262,14 +262,73 @@
                     (remove empty-item?)
                     (mapv ->saveable-item)))))
 
-(defn- drop-hidden-field-rules
-  "Removes the rules for the date spec fields that the selected period
-  doesn't show"
+(def ^:private items-field [:scheduled-transaction/items])
+(def ^:private days-field [:scheduled-transaction/date-spec :days])
+
+(defn- filled-items
   [sched-tran]
+  (remove empty-item? (:scheduled-transaction/items sched-tran)))
+
+(defn- positive?
+  [n]
+  (and n (decimal/> n (decimal/zero))))
+
+(defn- one-positive-quantity?
+  [{:keys [debit-quantity credit-quantity]}]
+  (if debit-quantity
+    (and (positive? debit-quantity)
+         (nil? credit-quantity))
+    (positive? credit-quantity)))
+
+(defn- total
+  [items k]
+  (->> items
+       (map k)
+       (filter identity)
+       (reduce decimal/+ (decimal/zero))))
+
+(def ^:private item-rules
+  #{{:key ::item-count
+     :pred (fn [m _] (<= 2 (count (filled-items m))))
+     :message "There must be at least two items."}
+    {:key ::item-accounts
+     :pred (fn [m _]
+             (every? (comp :id :scheduled-transaction-item/account)
+                     (filled-items m)))
+     :message "Each item must have an account."}
+    {:key ::item-quantities
+     :pred (fn [m _]
+             (every? one-positive-quantity?
+                     (filled-items m)))
+     :message "Each item must have either a debit or a credit greater than zero."}
+    {:key ::item-balance
+     :pred (fn [m _]
+             (let [items (filled-items m)]
+               (= (total items :debit-quantity)
+                  (total items :credit-quantity))))
+     :message "The sum of debits must equal the sum of credits."}})
+
+(def ^:private days-rules
+  #{{:key ::days
+     :pred (fn [m field] (seq (get-in m field)))
+     :message "Select at least one day."}})
+
+(defn- weekly?
+  [sched-tran]
+  (= :week (get-in sched-tran [:scheduled-transaction/period 1])))
+
+(defn- prepare-rules
+  "Adds the rules that don't belong to a single field, and removes the rules
+  for the date spec fields that the selected period doesn't show"
+  [sched-tran]
+  (v/add-rules sched-tran items-field item-rules)
+  (when (weekly? @sched-tran)
+    (v/add-rules sched-tran days-field days-rules))
   (drop-rules sched-tran
               (case (get-in @sched-tran [:scheduled-transaction/period 1])
-                :year []
-                :month [[:scheduled-transaction/date-spec :month]]
+                :year [days-field]
+                :month [[:scheduled-transaction/date-spec :month]
+                        days-field]
                 [[:scheduled-transaction/date-spec :month]
                  [:scheduled-transaction/date-spec :day]])))
 
@@ -299,7 +358,10 @@
                                vec)
                           {:debit-quantity nil
                            :credit-quantity nil
-                           :scheduled-transaction-item/account nil}))))))
+                           :scheduled-transaction-item/account nil})))))
+  (let [sched-tran (r/cursor page-state [:selected])]
+    (when (v/validated? sched-tran)
+      (v/validate sched-tran items-field item-rules))))
 
 (defn- item-row
   [index sched-tran page-state]
@@ -327,14 +389,8 @@
 (defn- items-table-footer
   [page-state]
   (let [items (r/cursor page-state [:selected :scheduled-transaction/items])
-        total-credits (make-reaction #(->> @items
-                                           (map :credit-quantity)
-                                           (filter identity)
-                                           (reduce decimal/+ (decimal/zero))))
-        total-debits (make-reaction #(->> @items
-                                          (map :debit-quantity)
-                                          (filter identity)
-                                          (reduce decimal/+ (decimal/zero))))
+        total-credits (make-reaction #(total @items :credit-quantity))
+        total-debits (make-reaction #(total @items :debit-quantity))
         css-class (make-reaction #(if (= @total-debits
                                          @total-credits)
                                     "text-success"
@@ -365,6 +421,11 @@
              doall)]
        [items-table-footer page-state]])))
 
+(defn- items-errors
+  [sched-tran]
+  (when-let [msg (v/validation-msg sched-tran items-field)]
+    [:div.text-danger.mb-3 msg]))
+
 (defn- sched-tran-form
   [page-state]
   (let [sched-tran (r/cursor page-state [:selected])]
@@ -373,7 +434,7 @@
               :class (when-not @sched-tran "d-none")
               :on-submit (fn [e]
                            (.preventDefault e)
-                           (drop-hidden-field-rules sched-tran)
+                           (prepare-rules sched-tran)
                            (v/validate sched-tran)
                            (when (v/valid? sched-tran)
                              (save-sched-tran page-state)))}
@@ -413,11 +474,15 @@
                 [:div.col
                  [forms/integer-field sched-tran [:scheduled-transaction/date-spec :day] {:validations #{::v/required}}]]]
          :month [forms/integer-field sched-tran [:scheduled-transaction/date-spec :day] {:validations #{::v/required}}]
-         :week [forms/checkboxes-field sched-tran [:scheduled-transaction/date-spec :days] (map #(vector (csk/->kebab-case-keyword (:name %))
-                                                                                                         (:abbreviation %))
-                                                                                                calendar/day-data)]
+         :week [:div.mb-3
+                [forms/checkboxes-field sched-tran days-field (map #(vector (csk/->kebab-case-keyword (:name %))
+                                                                            (:abbreviation %))
+                                                                   calendar/day-data)]
+                (when-let [msg (v/validation-msg sched-tran days-field)]
+                  [:div.text-danger msg])]
          "")
        [items-table page-state]
+       [items-errors sched-tran]
        [forms/checkbox-field sched-tran [:scheduled-transaction/enabled]]
        [:button.btn.btn-primary {:type :submit
                                  :title "Click here to save this scheduled transaction."}
