@@ -1,5 +1,5 @@
 [tools]
-java = "temurin-25.0.5+8.0.LTS"
+java = "temurin-25.0.5+100000002.0.LTS"
 node = "26"
 leiningen = "2.11.2"
 clj-kondo = "v2026.10.26"
