@@ -77,13 +77,17 @@
    :account/parent
    :account/payment-account
    :account/allocations
-   :account/hidden])
+   :account/hidden
+   :account/minimum-balance
+   :account/maximum-balance])
 
 (defn- extract-account
   [{:keys [params]}]
   (-> params
       (select-keys attribute-keys)
-      (update-in-if [:account/type] util/ensure-keyword)))
+      (update-in-if [:account/type] util/ensure-keyword)
+      (update-in-if [:account/minimum-balance] bigdec)
+      (update-in-if [:account/maximum-balance] bigdec)))
 
 (defn- create
   [{:keys [params authenticated] :as req}]

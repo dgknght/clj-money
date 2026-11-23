@@ -355,6 +355,34 @@
       :expected {:account/hidden true}
       :expected-response {:account/hidden true})))
 
+(deftest a-user-can-set-balance-thresholds-on-an-account-in-his-entity
+  (with-context
+    (testing "default format"
+      (assert-successful-update
+        (update-an-account "john@doe.com"
+                           :body #:account{:name "Checking"
+                                           :type :asset
+                                           :commodity {:id 1}
+                                           :minimum-balance 100M
+                                           :maximum-balance 5000M})
+        :expected #:account{:minimum-balance 100M
+                            :maximum-balance 5000M}
+        :expected-response #:account{:minimum-balance 100M
+                                     :maximum-balance 5000M}))
+    (testing "json format"
+      (assert-successful-update
+        (update-an-account "john@doe.com"
+                           :content-type "application/json"
+                           :body {:name "Checking"
+                                  :type "asset"
+                                  :minimumBalance 250
+                                  :maximumBalance 7500.5
+                                  :_type "account"})
+        :expected #:account{:minimum-balance 250M
+                            :maximum-balance 7500.5M}
+        :expected-response {:minimumBalance 250
+                            :maximumBalance 7500.5}))))
+
 (defn- delete-the-account
   [email]
   (let [account (find-account "Checking")

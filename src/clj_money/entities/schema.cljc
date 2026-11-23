@@ -118,6 +118,10 @@
                         :type :set}
                        {:id :hidden
                         :type :boolean}
+                       {:id :minimum-balance
+                        :type :decimal}
+                       {:id :maximum-balance
+                        :type :decimal}
                        {:id :quantity
                         :type :decimal
                         :transient? true}

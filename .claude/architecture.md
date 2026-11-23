@@ -45,7 +45,13 @@ into the caller's page state (issue #281).
   for a new transaction started with a nil `:transaction/account`. The form
   saves (accepting a transaction pending review) and deletes it itself; the
   callbacks decide what happens next. The Accounts register renders it in
-  place, or in a modal while reconciling
+  place, or in a modal while reconciling. Beneath the fields,
+  `views/transactions/balance_warning.cljs` warns when the transaction would
+  leave an account outside its balance thresholds as of its date
+  (`accounts/change-breach`: below `:account/minimum-balance`, above
+  `:account/maximum-balance`, or below zero for an asset account without a
+  minimum); the accounts list marks accounts whose current balance is
+  outside them (`accounts/threshold-breach`)
 - `views/transactions/page.cljs` - `/transactions/:id`, a page that loads one
   transaction into the form, to open a transaction from anywhere (search
   results, the scheduled transactions just created, the Review page).

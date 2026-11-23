@@ -505,3 +505,38 @@
                 output)]
       (a/go (a/onto-chan! input accounts))
       res)))
+
+(defn threshold-breach
+  "Returns :below-minimum or :above-maximum when the balance is outside the
+  account's minimum or maximum balance, or nil when it's within them or the
+  account has none"
+  [{:account/keys [minimum-balance maximum-balance]} balance]
+  (when balance
+    (cond
+      (and minimum-balance (d/< balance minimum-balance)) :below-minimum
+      (and maximum-balance (d/> balance maximum-balance)) :above-maximum)))
+
+(defn balance-floor
+  "Returns the balance below which the account is warned about: its minimum
+  balance or, for an asset account without one, zero (overdrawn)"
+  [{:account/keys [minimum-balance type]}]
+  (or minimum-balance
+      (when (= :asset type)
+        d/zero)))
+
+(defn change-breach
+  "Returns the threshold the balance breaks, looking only at the one the
+  change that led to it moves toward: a decrease can leave it :overdrawn (an
+  asset account without a minimum below zero) or :below-minimum, and an
+  increase :above-maximum"
+  [{:account/keys [minimum-balance maximum-balance] :as account} balance change]
+  (cond
+    (d/< change d/zero)
+    (when-let [floor (balance-floor account)]
+      (when (d/< balance floor)
+        (if minimum-balance :below-minimum :overdrawn)))
+
+    (d/> change d/zero)
+    (when (and maximum-balance
+               (d/> balance maximum-balance))
+      :above-maximum)))

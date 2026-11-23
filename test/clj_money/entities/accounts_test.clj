@@ -267,6 +267,13 @@
     (assert-invalid (dissoc (attributes) :account/name)
                     {:account/name ["Name is required"]})))
 
+(dbtest minimum-balance-cannot-exceed-maximum-balance
+  (with-context account-context
+    (assert-invalid (assoc (attributes)
+                           :account/minimum-balance 1000M
+                           :account/maximum-balance 100M)
+                    {:account/minimum-balance ["Minimum balance cannot be greater than the maximum balance"]})))
+
 (dbtest name-is-unique-within-a-parent
   (with-context duplicate-name-context
     (assert-invalid #:account{:name "Repairs"
@@ -337,6 +344,23 @@
   (with-context update-context
     (assert-updated (find-account "IRA")
                     {:account/hidden true})))
+
+(dbtest set-balance-thresholds
+  (with-context update-context
+    (assert-updated (find-account "IRA")
+                    #:account{:minimum-balance 100M
+                              :maximum-balance 1000M})))
+
+(dbtest clear-a-balance-threshold
+  (with-context update-context
+    (let [account (entities/put (assoc (find-account "IRA")
+                                       :account/minimum-balance 100M
+                                       :account/maximum-balance 1000M))
+          updated (entities/put (assoc account :account/minimum-balance nil))]
+      (is (nil? (:account/minimum-balance (entities/find updated)))
+          "The cleared threshold is removed")
+      (is (= 1000M (:account/maximum-balance (entities/find updated)))
+          "The other threshold is unchanged"))))
 
 (dbtest replace-allocations
   (with-context update-context

@@ -809,3 +809,52 @@
              :account/parent-ids [1]}
             {:id 4}]))
       "An account is unused when neither it nor any descendant has a transaction"))
+
+(deftest identify-a-threshold-breach
+  (let [account #:account{:minimum-balance (d 100)
+                          :maximum-balance (d 1000)}]
+    (are [balance expected] (= expected
+                               (accounts/threshold-breach account balance))
+         (d 99)   :below-minimum
+         (d 100)  nil
+         (d 1000) nil
+         (d 1001) :above-maximum
+         nil      nil))
+  (is (= :below-minimum
+         (accounts/threshold-breach #:account{:minimum-balance (d 0)}
+                                    (d -1)))
+      "A minimum can be given without a maximum")
+  (is (nil? (accounts/threshold-breach {} (d -1000)))
+      "An account without thresholds is never breached"))
+
+(deftest identify-a-threshold-breached-by-a-change
+  (let [checking #:account{:type :asset}
+        savings #:account{:type :asset
+                          :minimum-balance (d 500)
+                          :maximum-balance (d 10000)}
+        card #:account{:type :liability}]
+    (is (= :overdrawn (accounts/change-breach checking (d -1) (d -10)))
+        "An asset account without a minimum is overdrawn below zero")
+    (is (nil? (accounts/change-breach checking (d 0) (d -10)))
+        "An asset account at zero isn't overdrawn")
+    (is (= :below-minimum (accounts/change-breach savings (d 499) (d -10)))
+        "A decrease can take the balance below the minimum")
+    (is (nil? (accounts/change-breach savings (d 499) (d 10)))
+        "An increase doesn't break the minimum, even when still below it")
+    (is (= :above-maximum (accounts/change-breach savings (d 10001) (d 10)))
+        "An increase can take the balance above the maximum")
+    (is (nil? (accounts/change-breach savings (d 10001) (d -10)))
+        "A decrease doesn't break the maximum, even when still above it")
+    (is (nil? (accounts/change-breach card (d -100) (d -10)))
+        "A liability account without thresholds has no floor")
+    (is (= :below-minimum
+           (accounts/change-breach #:account{:type :asset
+                                             :minimum-balance (d -500)}
+                                   (d -501)
+                                   (d -10)))
+        "A minimum below zero replaces the overdraw floor")
+    (is (nil? (accounts/change-breach #:account{:type :asset
+                                                :minimum-balance (d -500)}
+                                      (d -100)
+                                      (d -10)))
+        "A balance above a negative minimum isn't warned about")))

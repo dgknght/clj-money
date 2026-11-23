@@ -1,12 +1,16 @@
-(ns clj-money.views.transactions.overdraw
-  "Warns when a transaction being entered would leave an asset account with a
-  negative balance as of the transaction's date.
+(ns clj-money.views.transactions.balance-warning
+  "Warns when a transaction being entered would leave an account's balance,
+  as of the transaction's date, outside the account's balance thresholds: below
+  its minimum balance, above its maximum balance or, for an asset account
+  without a minimum, below zero (overdrawn).
 
   The balance as of that date is worked out from the account's cached
   current balance, less the items that come after the date and, when an
   existing transaction is being edited, less its effect as it was saved.
   It only warns, since overdrafts can be legitimate and the cached balance
-  may lag behind changes made elsewhere."
+  may lag behind changes made elsewhere. A transaction is only warned about
+  for the thresholds it moves toward: one that reduces a balance can break the
+  minimum, and one that increases it the maximum."
   (:require [clojure.string :as string]
             [cljs-time.core :as t]
             [reagent.core :as r]
@@ -14,6 +18,8 @@
             [dgknght.app-lib.decimal :as decimal]
             [clj-money.util :refer [id=]]
             [clj-money.dates :refer [format-local-date]]
+            [clj-money.accounts :refer [balance-floor
+                                        change-breach]]
             [clj-money.state :refer [accounts-by-id]]
             [clj-money.transactions :as trxs :refer [accountified?
                                                      unentryfy
@@ -38,15 +44,22 @@
        (map with-cached-account)
        balance-changes))
 
-(defn- spent-accounts
-  "Returns the asset accounts whose balances the transaction reduces, as
-  [account change] tuples"
+(defn- watched?
+  "Returns true if the change could break one of the account's thresholds"
+  [{:account/keys [maximum-balance] :as account} change]
+  (cond
+    (decimal/< change (decimal/zero)) (some? (balance-floor account))
+    (decimal/> change (decimal/zero)) (some? maximum-balance)
+    :else false))
+
+(defn- watched-accounts
+  "Returns the accounts whose balances the transaction changes in a way
+  that could break one of their thresholds, as [account change] tuples"
   [trx]
   (->> (changes trx)
        (keep (fn [[id change]]
-               (let [account (@accounts-by-id id)]
-                 (when (and (= :asset (:account/type account))
-                            (decimal/< change (decimal/zero)))
+               (when-let [account (@accounts-by-id id)]
+                 (when (watched? account change)
                    [account change]))))))
 
 (defn- later-items-key
@@ -88,16 +101,16 @@
 
 (defn- fetch-missing
   "Fetches whatever isn't yet known that's needed to work out the balances
-  of the accounts the transaction spends from as of its date"
+  of the watched accounts as of the transaction's date"
   [transaction fetched]
   (let [{:transaction/keys [transaction-date] :as trx} @transaction
-        spent (when transaction-date (spent-accounts trx))
+        watched (when transaction-date (watched-accounts trx))
         known @fetched]
-    (when (seq spent)
+    (when (seq watched)
       (when (and (:id trx)
                  (not (contains? known (original-key trx))))
         (fetch-original fetched trx))
-      (doseq [[account] spent]
+      (doseq [[account] watched]
         (when (and (needs-later-items? account transaction-date)
                    (not (contains? known (later-items-key account transaction-date))))
           (fetch-later-items fetched account transaction-date))))))
@@ -128,9 +141,9 @@
         (get original id (decimal/zero))))
     (decimal/zero)))
 
-(defn- overdraws
-  "Returns the accounts the transaction would overdraw as of its date,
-  each with the balance it would leave, as [account balance] tuples"
+(defn- breaches
+  "Returns the thresholds the transaction would break as of its date, as
+  maps of :account, :balance (the balance it would leave) and :breach"
   [{:transaction/keys [transaction-date] :as trx} known]
   (when transaction-date
     (keep (fn [[account change]]
@@ -141,32 +154,41 @@
                                   (decimal/- later)
                                   (decimal/- original)
                                   (decimal/+ change))]
-                  (when (decimal/< balance (decimal/zero))
-                    [account balance])))))
-          (spent-accounts trx))))
+                  (when-let [b (change-breach account balance change)]
+                    {:account account
+                     :balance balance
+                     :breach b})))))
+          (watched-accounts trx))))
 
-(defn overdraw-warning
+(defn- describe
+  [{{:account/keys [name minimum-balance maximum-balance]} :account
+    :keys [balance breach]}]
+  (str (case breach
+         :overdrawn (str "overdraw " name)
+         :below-minimum (str "take " name " below its minimum balance of "
+                             (format-decimal minimum-balance))
+         :above-maximum (str "take " name " above its maximum balance of "
+                             (format-decimal maximum-balance)))
+       " (balance "
+       (format-decimal balance)
+       ")"))
+
+(defn balance-warning
   "Renders a warning when the transaction in the given atom (or cursor)
-  would overdraw an asset account as of its date"
+  would leave an account outside its balance thresholds as of its date"
   [transaction]
   (let [fetched (r/atom {})
         tracker (r/track! fetch-missing transaction fetched)]
     (r/create-class
-      {:display-name "overdraw-warning"
+      {:display-name "balance-warning"
        :component-will-unmount #(r/dispose! tracker)
        :reagent-render
        (fn [transaction]
          (let [{:transaction/keys [transaction-date] :as trx} @transaction]
-           (when-let [overdrawn (seq (overdraws trx @fetched))]
-             [:div#overdraw-warning.alert.alert-warning
-              (str "This transaction would overdraw "
-                   (string/join ", "
-                                (map (fn [[account balance]]
-                                       (str (:account/name account)
-                                            " (balance "
-                                            (format-decimal balance)
-                                            ")"))
-                                     overdrawn))
+           (when-let [broken (seq (breaches trx @fetched))]
+             [:div#balance-warning.alert.alert-warning
+              (str "This transaction would "
+                   (string/join "; and " (map describe broken))
                    " as of "
                    (format-local-date transaction-date)
                    ".")])))})))

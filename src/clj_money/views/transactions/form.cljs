@@ -39,7 +39,7 @@
                                                      ->bilateral]]
             [clj-money.api.transactions :as transactions]
             [clj-money.cached-accounts :refer [fetch-accounts]]
-            [clj-money.views.transactions.overdraw :refer [overdraw-warning]]
+            [clj-money.views.transactions.balance-warning :refer [balance-warning]]
             [clj-money.pending-review :as pending-review]))
 
 (defn- supply-accounts
@@ -74,7 +74,7 @@
 (defn- save-transaction
   "Saves the transaction, accepting it if it's awaiting review, in which
   case the count of transactions awaiting review is refreshed. The cached
-  accounts are refreshed, so that their balances, which the overdraw warning
+  accounts are refreshed, so that their balances, which the balance warning
   relies on, stay current."
   [trx on-save]
   (let [reviewed? (= :pending (:transaction/review-status trx))]
@@ -332,7 +332,7 @@
       (if (simple? @transaction choose-account?)
         [simple-transaction-form transaction on-save choose-account?]
         [full-transaction-form transaction on-save])]
-     [overdraw-warning transaction]
+     [balance-warning transaction]
      [:div
       [:button.btn.btn-primary
        {:type :submit

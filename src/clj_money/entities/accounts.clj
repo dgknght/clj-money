@@ -36,6 +36,16 @@
 (v/reg-spec parent-has-same-type? {:message "%s must match the parent type"
                                    :path [:account/type]})
 
+(defn- thresholds-are-ordered?
+  "Validation rule that ensures that an account's minimum balance, when
+  given with a maximum balance, doesn't exceed it"
+  [{:account/keys [minimum-balance maximum-balance]}]
+  (or (nil? minimum-balance)
+      (nil? maximum-balance)
+      (<= minimum-balance maximum-balance)))
+(v/reg-spec thresholds-are-ordered? {:message "%s cannot be greater than the maximum balance"
+                                     :path [:account/minimum-balance]})
+
 (s/def :account/entity ::entities/entity-ref)
 (s/def :account/name string?)
 (s/def :account/type #{:asset :liability :equity :income :expense})
@@ -48,6 +58,8 @@
 (s/def :account/transaction-date-range (s/nilable (s/tuple dates/local-date?
                                                            dates/local-date?)))
 (s/def :account/hidden boolean?)
+(s/def :account/minimum-balance (s/nilable decimal?))
+(s/def :account/maximum-balance (s/nilable decimal?))
 
 (s/def ::entities/account (s/and (s/keys :req [:account/entity
                                              :account/type
@@ -59,9 +71,12 @@
                                                :account/user-tags
                                                :account/allocations
                                                :account/transaction-date-range
-                                               :account/hidden])
+                                               :account/hidden
+                                               :account/minimum-balance
+                                               :account/maximum-balance])
                                  name-is-unique?
-                                 parent-has-same-type?))
+                                 parent-has-same-type?
+                                 thresholds-are-ordered?))
 ; :value and :children-value are not specified because they are always
 ; calculated and not passed in
 

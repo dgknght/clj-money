@@ -105,6 +105,12 @@
                           (find-by-path input)
                           callback))]
        [:fieldset
+        [:legend "Balance Thresholds"]
+        [:p.form-text
+         "You'll be warned when the balance falls below the minimum or rises above the maximum. Leave either blank for no limit."]
+        [forms/decimal-field account [:account/minimum-balance] {:caption "Minimum Balance"}]
+        [forms/decimal-field account [:account/maximum-balance] {:caption "Maximum Balance"}]]
+       [:fieldset
         [:legend "Tags"]
         [tags-input account]]
        [:div.mt-2

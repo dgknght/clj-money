@@ -64,4 +64,12 @@
  {:db/ident :account/hidden
   :db/valueType :db.type/boolean
   :db/cardinality :db.cardinality/one
-  :db/doc "Indicates the account should be hidden from default views and type-aheads"}]
+  :db/doc "Indicates the account should be hidden from default views and type-aheads"}
+ {:db/ident :account/minimum-balance
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one
+  :db/doc "The balance below which the user is warned"}
+ {:db/ident :account/maximum-balance
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one
+  :db/doc "The balance above which the user is warned"}]

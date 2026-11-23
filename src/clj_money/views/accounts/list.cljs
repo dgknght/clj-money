@@ -13,11 +13,14 @@
   are the ids of the accounts selected for a bulk edit.
 
   Accounts that have never had a transaction, either directly or through a
-  descendant, are muted and marked, to help find accounts to clean up."
+  descendant, are muted and marked, to help find accounts to clean up.
+  Accounts whose balance is outside their minimum or maximum balance are
+  marked with a warning."
   (:require [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [reagent.format :refer [currency-format]]
             [dgknght.app-lib.html :as html]
+            [dgknght.app-lib.web :refer [format-decimal]]
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.forms :as forms]
@@ -27,6 +30,7 @@
                                                latest]]
             [clj-money.accounts :refer [account-types
                                         system-tagged?
+                                        threshold-breach
                                         unused-ids
                                         with-descendants]]
             [clj-money.state :as state :refer [+busy
@@ -176,6 +180,21 @@
       (icon :x-circle :size :small)
       "Delete"]]]])
 
+(defn- threshold-badge
+  [{:account/keys [quantity minimum-balance maximum-balance] :as account}]
+  (when-let [breach (threshold-breach account quantity)]
+    [:span.badge.text-bg-warning.ms-2.threshold-breach
+     {:title (case breach
+               :below-minimum (str "The balance is below the minimum of "
+                                   (format-decimal minimum-balance))
+               :above-maximum (str "The balance is above the maximum of "
+                                   (format-decimal maximum-balance)))}
+     (icon :exclamation-triangle :size :small)
+     [:span.ms-1.d-none.d-sm-inline
+      (case breach
+        :below-minimum "Below minimum"
+        :above-maximum "Above maximum")]]))
+
 (defn- account-row
   [{:keys [id] :account/keys [parent-ids] :as account} {:keys [expanded bulk-edit unused] :as opts}]
   ^{:key (str "account-" id)}
@@ -191,7 +210,8 @@
          (abbr-acct-name account (unused id))
          (when (unused id)
            [:span.badge.text-bg-secondary.ms-2.d-none.d-sm-inline
-            "No transactions"])]]
+            "No transactions"])
+         [threshold-badge account]]]
    [:td.text-end.d-none.d-sm-table-cell.value-depth
     [:span {:class (str "value-depth-" (count parent-ids))}
      (currency-format (:account/total-value account))]]
