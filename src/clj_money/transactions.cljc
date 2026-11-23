@@ -304,6 +304,23 @@
     (when (= 1 (count sums))
       (first sums))))
 
+(defn balance-changes
+  "Given unilateral transaction items, returns a map of account id to the net
+  change the items make to that account's balance. The items' accounts must
+  carry their types. Items still missing an account, an action, or a
+  quantity, as while the transaction is being entered, are ignored."
+  [items]
+  (->> items
+       (filter (every-pred :transaction-item/account
+                           :transaction-item/action
+                           :transaction-item/quantity))
+       (reduce (fn [changes {:transaction-item/keys [account] :as item}]
+                 (update-in changes
+                            [(:id account)]
+                            (fnil d/+ d/zero)
+                            (polarize-quantity item)))
+               {})))
+
 (defn- simple->bilateral
   [{:transaction/keys [debit-account
                        debit-item

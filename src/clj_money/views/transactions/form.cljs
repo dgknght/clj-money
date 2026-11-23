@@ -38,6 +38,8 @@
                                                      ->unilateral
                                                      ->bilateral]]
             [clj-money.api.transactions :as transactions]
+            [clj-money.cached-accounts :refer [fetch-accounts]]
+            [clj-money.views.transactions.overdraw :refer [overdraw-warning]]
             [clj-money.pending-review :as pending-review]))
 
 (defn- supply-accounts
@@ -71,19 +73,22 @@
 
 (defn- save-transaction
   "Saves the transaction, accepting it if it's awaiting review, in which
-  case the count of transactions awaiting review is refreshed"
+  case the count of transactions awaiting review is refreshed. The cached
+  accounts are refreshed, so that their balances, which the overdraw warning
+  relies on, stay current."
   [trx on-save]
   (let [reviewed? (= :pending (:transaction/review-status trx))]
     (+busy)
     (transactions/save (accept-review trx)
                        :callback -busy
                        :on-success (fn [saved]
+                                     (fetch-accounts)
                                      (when reviewed? (pending-review/load-count))
                                      (when on-save (on-save saved))))))
 
 (defn- delete-transaction
-  "Deletes the transaction, after confirmation. If it was awaiting review,
-  the count of those is refreshed."
+  "Deletes the transaction, after confirmation, and refreshes the cached
+  accounts. If it was awaiting review, the count of those is refreshed."
   [{:transaction/keys [review-status] :as trx} on-delete]
   (when (js/confirm "Are you sure you want to delete this transaction?")
     (+busy)
@@ -91,6 +96,7 @@
       trx
       :callback -busy
       :on-success (fn []
+                    (fetch-accounts)
                     (when (= :pending review-status)
                       (pending-review/load-count))
                     (when on-delete (on-delete trx))))))
@@ -326,6 +332,7 @@
       (if (simple? @transaction choose-account?)
         [simple-transaction-form transaction on-save choose-account?]
         [full-transaction-form transaction on-save])]
+     [overdraw-warning transaction]
      [:div
       [:button.btn.btn-primary
        {:type :submit

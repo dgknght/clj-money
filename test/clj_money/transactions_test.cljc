@@ -1061,3 +1061,23 @@
                                       :to-account {:id 2}
                                       :entity {:id 4}}))
       "The trade account becomes the from account, and trade-only attributes are dropped"))
+
+(deftest calculate-the-balance-changes-of-transaction-items
+  (let [checking {:id 1 :account/type :asset}
+        groceries {:id 2 :account/type :expense}
+        changes (trx/balance-changes
+                  [#:transaction-item{:account checking
+                                      :action :credit
+                                      :quantity (d 10)}
+                   #:transaction-item{:account checking
+                                      :action :debit
+                                      :quantity (d 3)}
+                   #:transaction-item{:account groceries
+                                      :action :debit
+                                      :quantity (d 7)}
+                   #:transaction-item{:account groceries
+                                      :action :debit}
+                   {}])]
+    (is (= {1 "-7" 2 "7"}
+           (update-vals changes str))
+        "Each account's items are netted, and incomplete items are ignored")))
