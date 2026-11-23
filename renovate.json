@@ -56,6 +56,19 @@
       "enabled": false
     },
     {
+      "description": "Keep PostgreSQL in step across docker-compose.yaml and the CI workflows",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["postgres", "docker.io/postgres"],
+      "groupName": "PostgreSQL"
+    },
+    {
+      "description": "Hold PostgreSQL major upgrades for approval on the Dependency Dashboard; production decides the major version",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["postgres", "docker.io/postgres"],
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    },
+    {
       "description": "Ignore custom internal Docker images",
       "matchPackageNames": ["dgknght/datomic-pro"],
       "enabled": false
