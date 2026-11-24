@@ -6,6 +6,7 @@
             [reagent.core :as r]
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.forms :as forms]
+            [dgknght.app-lib.forms-validation :as v]
             [dgknght.app-lib.notifications :as notify]
             [clj-money.components :refer [button]]
             [clj-money.icons :refer [icon-with-text]]
@@ -212,7 +213,9 @@
 (defn- correction-form
   "Shows what the model read from a statement that couldn't be reconciled,
   for the user to correct. It isn't a form element of its own, as it's
-  shown within the reconciliation form."
+  shown within the reconciliation form. Each part is required: the
+  statement is reconciled with what the model read in place of a part left
+  blank, which, as the model's read failed, may be nothing."
   [reading]
   (let [corrections (r/atom (->corrections @reading))]
     (fn []
@@ -227,21 +230,28 @@
                        (callback (find-by-path input @accounts)))
           :caption-fn path-of
           :value-fn identity
-          :find-fn (fn [current callback] (callback current))}]
-        [forms/date-field corrections [:period-start] {}]
-        [forms/date-field corrections [:period-end] {}]
-        [forms/decimal-field corrections [:opening-balance] {:fraction-digits 2}]
-        [forms/decimal-field corrections [:closing-balance] {:fraction-digits 2}]
+          :find-fn (fn [current callback] (callback current))
+          :validations #{::v/required}}]
+        [forms/date-field corrections [:period-start] {:validations #{::v/required}}]
+        [forms/date-field corrections [:period-end] {:validations #{::v/required}}]
+        [forms/decimal-field corrections [:opening-balance] {:fraction-digits 2
+                                                             :validations #{::v/required}}]
+        [forms/decimal-field corrections [:closing-balance] {:fraction-digits 2
+                                                             :validations #{::v/required}}]
         [prompt-actions
          reading
          "Try Again"
          "Click here to reconcile the statement as corrected."
-         #(correct reading (->ingestion-corrections @corrections))]]])))
+         (fn []
+           (v/validate corrections)
+           (when (v/valid? corrections)
+             (correct reading (->ingestion-corrections @corrections))))]]])))
 
 (defn- retry-prompt
   "Shows why the statement couldn't be reconciled, for the user to correct
   it in the form in which it's shown, e.g., the reconciliation form, from
-  which corrections-fn returns the corrections"
+  which corrections-fn returns the corrections, or nil if they aren't valid,
+  in which case the statement isn't sent"
   [reading corrections-fn]
   [:div.mt-2
    [:div.alert.alert-danger (:statement-ingestion/error @reading)]
@@ -250,7 +260,8 @@
     reading
     "Try Again"
     "Click here to reconcile the statement as corrected."
-    #(correct reading (->ingestion-corrections (corrections-fn)))]])
+    #(when-let [corrections (corrections-fn)]
+       (correct reading (->ingestion-corrections corrections)))]])
 
 (defn- replace-prompt
   "Asks the user whether the reconciliation in progress should be replaced
@@ -269,7 +280,8 @@
   "Shows that the statement is being read, or, if it couldn't be
   reconciled, what was read from it, for the user to correct. When
   corrections-fn is given, the statement is corrected in the form that
-  shows it (see retry-prompt) rather than in a form of its own."
+  shows it (see retry-prompt) rather than in a form of its own. It returns
+  nil when the corrections aren't valid."
   [reading & {:keys [corrections-fn]}]
   (when-let [{:statement-ingestion/keys [status]} @reading]
     (case status

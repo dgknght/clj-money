@@ -623,8 +623,9 @@ an unfinished (`:new`) reconciliation of the account (issue #182).
   and saves it on the ingestion, then `reconcile-statement` does the rest,
   so that a statement that can't be reconciled keeps what the model read, for
   the user to correct (`views/statement_upload.cljs` shows it in a form in
-  place of the reading indicator; on the reconciliation form, it fills the
-  form's end of period and balance instead, and Try Again sends those):
+  place of the reading indicator, all of whose fields are required; on the
+  reconciliation form, it fills the form's end of period and balance
+  instead, and Try Again validates and sends those):
   resolves the account, matches the lines, creates the
   transactions and saves the reconciliation (or, for a trading account, the
   reconciliations; see below). The `statement-ingestion` entity

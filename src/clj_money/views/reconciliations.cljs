@@ -243,11 +243,15 @@
 
 (defn- statement-corrections
   "Returns the end of period and balance of the reconciliation, as
-  corrections to the statement it was filled from"
+  corrections to the statement it was filled from, or nil if they aren't
+  valid"
   [page-state]
-  (let [{:reconciliation/keys [end-of-period balance]} (:reconciliation @page-state)]
-    {:period-end end-of-period
-     :closing-balance balance}))
+  (let [recon (r/cursor page-state [:reconciliation])]
+    (v/validate recon)
+    (when (v/valid? recon)
+      (let [{:reconciliation/keys [end-of-period balance]} @recon]
+        {:period-end end-of-period
+         :closing-balance balance}))))
 
 (defn- statement-upload
   [page-state reading]
