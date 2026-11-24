@@ -128,7 +128,6 @@
        [:div.mt-3
         [:button.btn.btn-primary
          {:type :submit
-          :data-bs-dismiss :offcanvas
           :title "Click here to show the report with the specified parameters"}
          (icon-with-text :arrow-repeat "Show")]]
        [:hr]
@@ -236,7 +235,6 @@
        [:div.mt-3
         [:button.btn.btn-primary
          {:type :submit
-          :data-bs-dismiss :offcanvas
           :title "Click here to show the report with the specified parameters"}
          (icon-with-text :arrow-repeat "Show")]]
        [:hr]
@@ -908,11 +906,21 @@
 
 ; Bootstrap has no externs, so look its properties up by string to
 ; keep advanced compilation from renaming them
-(defn- show-options []
+(defn- options-offcanvas
+  [method]
   (when-let [elem (.getElementById js/document "report-options")]
     (-> (gobj/get js/bootstrap "Offcanvas")
         (js-invoke "getOrCreateInstance" elem)
-        (js-invoke "show"))))
+        (js-invoke method))))
+
+(defn- show-options []
+  (options-offcanvas "show"))
+
+; The Show button doesn't dismiss the offcanvas with data-bs-dismiss
+; because that would hide the validation messages when the options
+; are invalid
+(defn- hide-options []
+  (options-offcanvas "hide"))
 
 (defn- report-selected
   "Loads the newly selected report if it hasn't been loaded yet. The account
@@ -946,6 +954,7 @@
                          (.preventDefault e)
                          (v/validate options)
                          (when (v/valid? options)
+                           (hide-options)
                            (load-report page-state)))}
      (case @selected
        :income-statement [income-statement-option-fields page-state]
@@ -956,7 +965,6 @@
      [:div.mt-3
       [:button.btn.btn-primary
        {:type :submit
-        :data-bs-dismiss :offcanvas
         :title "Click here to show the report with the specified parameters"}
        (icon-with-text :arrow-repeat "Show")]]]))
 
