@@ -1,5 +1,6 @@
 (ns clj-money.otel.ingestion-test
   (:require [clojure.test :refer [deftest is testing]]
+            [clj-money.otel-helpers :refer [capture]]
             [clj-money.otel :as otel]
             [clj-money.ingestion :as ing]
             [clj-money.otel.ingestion :as otel-ing]))
@@ -65,6 +66,7 @@
              (not (neg? duration)))
         "The duration is recorded")
     (is (= {"gen_ai.operation.name" "generate_content"
+            "clj_money.ingestion.document" "receipt"
             "gen_ai.provider.name" "stub"
             "gen_ai.request.model" "configured-model"}
            duration-attrs)
@@ -113,3 +115,63 @@
                 (filter (comp #(get % "gen_ai.token.type") second))
                 (map first)))
         "The input and output tokens are recorded")))
+
+(deftest record-the-timings-reported-by-the-model-server
+  (let [[_ recorded]
+        (read-with-metrics
+          (fn [& _]
+            (with-meta {:total 10M}
+                       {::ing/usage {:model "response-model"
+                                     :input-type "image"
+                                     :input-tokens 1200
+                                     :output-tokens 300
+                                     :durations {:total 12.5
+                                                 :load 2.0
+                                                 :prompt-eval 4.0
+                                                 :eval 6.0}}})))
+        [_duration & usage] recorded]
+    (is (= #{12.5 2.0 4.0 6.0}
+           (->> usage
+                (remove (comp #(get % "gen_ai.token.type") second))
+                (map first)
+                set))
+        "Each timing is recorded")
+    (is (every? #(= {"clj_money.ingestion.input_type" "image"
+                     "clj_money.ingestion.document" "receipt"
+                     "gen_ai.response.model" "response-model"}
+                    (select-keys (second %)
+                                 ["clj_money.ingestion.input_type"
+                                  "clj_money.ingestion.document"
+                                  "gen_ai.response.model"]))
+                usage)
+        "The tokens and timings are recorded with the input type, document and model")))
+
+(deftest export-the-timings-as-histograms-and-span-attributes
+  (let [{:keys [metrics] [span] :spans}
+        (capture #(ing/read-statement
+                    (ing/statement-reader
+                      (observable (fn [& _]
+                                    (with-meta {}
+                                               {::ing/usage {:model "qwen3:8b"
+                                                             :input-type "text"
+                                                             :durations {:load 2.0
+                                                                         :eval 6.0}}}))))
+                    "source"
+                    {:id 1}
+                    {}))]
+    (is (= {"clj_money.ingestion.model.load.duration" 2.0
+            "clj_money.ingestion.model.eval.duration" 6.0}
+           (-> metrics
+               (select-keys ["clj_money.ingestion.model.load.duration"
+                             "clj_money.ingestion.model.eval.duration"
+                             "clj_money.ingestion.model.total.duration"])
+               (update-vals (comp :sum first :points))))
+        "Each timing reported is recorded in its histogram")
+    (is (= {"clj_money.ingestion.input_type" "text"
+            "clj_money.ingestion.model.load_duration" 2.0
+            "clj_money.ingestion.model.eval_duration" 6.0}
+           (select-keys (:attributes span)
+                        ["clj_money.ingestion.input_type"
+                         "clj_money.ingestion.model.load_duration"
+                         "clj_money.ingestion.model.eval_duration"]))
+        "The input type and timings are added to the span")))

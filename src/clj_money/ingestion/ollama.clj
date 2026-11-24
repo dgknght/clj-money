@@ -52,6 +52,27 @@
     (seq images) (assoc :images (vec images))
     (some? think) (assoc :think think)))
 
+(defn- nanos->seconds
+  [nanos]
+  (/ nanos 1e9))
+
+(defn- usage
+  "Returns the usage reported in the response body, in the form expected by
+  clj-money.otel.ingestion. Ollama reports its timings in nanoseconds."
+  [body req-body]
+  {:model (:model body)
+   :input-type (if (seq (:images req-body)) "image" "text")
+   :input-tokens (:prompt_eval_count body)
+   :output-tokens (:eval_count body)
+   :durations (->> {:total (:total_duration body)
+                    :load (:load_duration body)
+                    :prompt-eval (:prompt_eval_duration body)
+                    :eval (:eval_duration body)}
+                   (keep (fn [[k v]]
+                           (when v
+                             [k (nanos->seconds v)])))
+                   (into {}))})
+
 (defn- handle-success-response
   [body req-body]
   (log/debugf "result: %s" (with-out-str (pprint (dissoc body :context))))
@@ -64,9 +85,7 @@
     (some-> body
             :response
             (json/parse-string ->kebab-case-keyword)
-            (vary-meta assoc ::ing/usage {:model (:model body)
-                                          :input-tokens (:prompt_eval_count body)
-                                          :output-tokens (:eval_count body)}))))
+            (vary-meta assoc ::ing/usage (usage body req-body)))))
 
 (defn- handle-failure-response
   [body source]

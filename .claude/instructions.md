@@ -50,7 +50,11 @@
   in `observable-reader`, so implementations stay free of observability
   code. A reader reports token usage by attaching `:clj-money.ingestion/usage`
   metadata
-  (`:model`, `:input-tokens`, `:output-tokens`) to its result
+  (`:model`, `:input-tokens`, `:output-tokens`) to its result, and,
+  optionally, `:input-type` (`"text"` or `"image"`) and `:durations`, the
+  server's timings in seconds (`:total`, `:load`, `:prompt-eval`, `:eval`),
+  which the ollama reader reports and the decorator records in the
+  `clj_money.ingestion.model.<phase>.duration` histograms
 - The browser client is traced by the OpenTelemetry JS SDK, bundled by
   esbuild from `src/js/otel.js` into `resources/js/otel-bundle.js` on
   `npm install` and loaded as a foreign lib (`src/deps.cljs`).

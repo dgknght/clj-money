@@ -27,12 +27,34 @@
                  {:response "{\"total\": 38.97}"
                   :model "qwen2.5vl:7b"
                   :prompt_eval_count 1200
-                  :eval_count 300}
-                 {:options {:num_ctx 4096}})]
+                  :eval_count 300
+                  :total_duration 12500000000
+                  :load_duration 2000000000
+                  :prompt_eval_duration 4000000000
+                  :eval_duration 6000000000}
+                 {:options {:num_ctx 4096}
+                  :images ["aW1hZ2U="]})]
     (is (= {:model "qwen2.5vl:7b"
+            :input-type "image"
             :input-tokens 1200
-            :output-tokens 300}
-           (::ing/usage (meta result))))))
+            :output-tokens 300
+            :durations {:total 12.5
+                        :load 2.0
+                        :prompt-eval 4.0
+                        :eval 6.0}}
+           (::ing/usage (meta result)))
+        "The tokens and the timings, in seconds, are attached")))
+
+(deftest a-request-without-images-is-a-text-request
+  (let [result (handle-success-response
+                 {:response "{\"total\": 38.97}"
+                  :model "qwen3:8b"}
+                 {:options {:num_ctx 4096}})]
+    (is (= {:input-type "text"
+            :durations {}}
+           (select-keys (::ing/usage (meta result))
+                        [:input-type :durations]))
+        "The input type is text, and missing timings are omitted")))
 
 (defn- image-bytes
   [width height]
