@@ -75,7 +75,11 @@ into the caller's page state (issue #281).
   trading account's lots, to estimate the gain or loss of each sale), `lots` (loads
   its own lots and prices), `fund_transactions`, `tradable` (the lots and
   transactions tabs), `register` (the account's items, with the buttons
-  beneath them as callbacks) and `attachments`. `items` loads the account's
+  beneath them as callbacks), `attachments` and `transaction_export` (issue
+  #423: options in, a CSV download out, from
+  `GET /api/accounts/:account-id/transaction-items/export`, which
+  `api/transaction_exports.clj` builds; `export` is a reserved word in
+  JavaScript, so the namespace can't be named that). `items` loads the account's
   transaction items into the page state, for the register, the fund
   transactions table and `views/reconciliations.cljs`. The register,
   tradable tabs and reconciliation views still take the page state, since

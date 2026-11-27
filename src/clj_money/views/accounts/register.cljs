@@ -310,7 +310,7 @@
          (icon-with-text :plus "Add")]))))
 
 (defn- register-buttons
-  [page-state {:keys [on-reconcile on-back] :as callbacks}]
+  [page-state {:keys [on-reconcile on-export on-back] :as callbacks}]
   [:div.d-flex.justify-content-between
    [create-trx-button page-state callbacks]
    [button {:html {:class "btn-primary btn-secondary ms-2 d-none d-md-block"
@@ -323,6 +323,12 @@
     {:href (recs/list-path (:view-account @page-state))
      :title "Click here to see this account's reconciliations and their statements."}
     (icon-with-text :journal-check "Reconciliations")]
+   [button {:html {:class "btn-secondary ms-2 d-none d-md-block"
+                   :on-click on-export
+                   :disabled @busy?
+                   :title "Click here to export this account's transactions as a CSV file."}
+            :caption "Export"
+            :icon :download}]
    [button {:html {:class "btn-secondary ms-2"
                    :on-click on-back
                    :title "Click here to return to the account list."}
@@ -334,16 +340,18 @@
   something else is open over them.
 
   callbacks is a map of :on-new-transaction, :on-new-trade,
-  :on-new-dividend, :on-reconcile and :on-back, for the buttons beneath the
-  items"
+  :on-new-dividend, :on-reconcile, :on-export and :on-back, for the buttons
+  beneath the items"
   [page-state callbacks]
   (let [account (r/cursor page-state [:view-account])
         transaction (r/cursor page-state [:transaction])
         trade (r/cursor page-state [:trade])
         attachments-item (r/cursor page-state [:attachments-item])
         reconciliation (r/cursor page-state [:reconciliation])
+        export (r/cursor page-state [:export])
         show? (make-reaction #(and @account
                                    (not @attachments-item)
+                                   (not @export)
                                    (or @reconciliation
                                        (not (system-tagged? @account :tradable)))
                                    (or @reconciliation (not @transaction))

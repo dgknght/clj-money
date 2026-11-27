@@ -50,6 +50,7 @@
             [clj-money.api.transfers :as transfers-api]
             [clj-money.api.transactions :as transactions-api]
             [clj-money.api.transaction-items :as transaction-items-api]
+            [clj-money.api.transaction-exports :as transaction-exports-api]
             [clj-money.api.scheduled-transactions :as sched-trans-api]
             [clj-money.api.attachments :as att-api]
             [clj-money.api.reconciliations :as recs-api]
@@ -209,6 +210,7 @@
                  trading-api/routes
                  transfers-api/routes
                  transaction-items-api/routes
+                 transaction-exports-api/routes
                  sched-trans-api/routes
                  invitations-api/routes
                  cli-logins-api/routes

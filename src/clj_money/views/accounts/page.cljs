@@ -38,6 +38,8 @@
             [clj-money.views.accounts.tradable :refer [tradable-account-items]]
             [clj-money.views.accounts.attachments :refer [attachments-card
                                                           pending-attachment-form]]
+            [clj-money.views.accounts.transaction-export :refer [export-form
+                                                                 new-export]]
             [clj-money.views.transactions.form :as tf]
             [clj-money.views.trades.form :as trades]
             [clj-money.views.reconciliations :as recs]
@@ -108,6 +110,7 @@
          :view-account
          :attachments-item
          :reconciliation
+         :export
          :items
          :all-items-fetched?))
 
@@ -209,6 +212,7 @@
          #(-> %
               (dissoc :selected
                       :view-account
+                      :export
                       :commodities
                       :all-items-fetched?
                       :items)
@@ -227,6 +231,7 @@
    :on-new-trade #(start-trade page-state trades/new-trade)
    :on-new-dividend #(start-trade page-state trades/new-dividend)
    :on-reconcile #(start-reconciliation page-state)
+   :on-export #(swap! page-state assoc :export (new-export (:view-account @page-state)))
    :on-back #(unselect-account page-state)})
 
 (defn- index
@@ -250,6 +255,7 @@
         expanded (r/cursor page-state [:expanded])
         bulk-edit (r/cursor page-state [:bulk-edit])
         allocation (r/cursor page-state [:allocation])
+        export (r/cursor page-state [:export])
         hide-zero-balances? (r/cursor filter-options [:hide-zero-balances?])
         hide-table? (make-reaction #(or @selected
                                         @view-account
@@ -325,6 +331,12 @@
         (when @reconciliation
           [:div.col-lg-4
            [recs/reconciliation-form page-state]])]
+       (when @export
+         [:div.row
+          [:div.col-md-6
+           [export-form export
+            :account @view-account
+            :on-done #(swap! page-state dissoc :export)]]])
        [recs/payment-form page-state]
        [tradable-account-items page-state callbacks]
        [transaction-form-container page-state]
